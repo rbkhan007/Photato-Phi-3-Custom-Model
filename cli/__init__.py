@@ -1261,6 +1261,17 @@ def demo():
     for cmd, desc in examples:
         print(f"  python -m cli {cmd:<30} # {desc}")
 
+    # New features
+    print("\n[NEW FEATURES]")
+    print("  --version          Show version (v0.1.0)")
+    print("  --verbose          Enable debug output")
+    print("  health             Run health check on all components")
+    print("  config get         Show all configuration")
+    print("  sessions search    Search past sessions")
+    print("  /export            Export session as markdown (in REPL)")
+    print("  /search <query>    Search past sessions (in REPL)")
+    print("  /plugins           Load custom plugins (in REPL)")
+
     # Training
     print("\n[TRAINING]")
     print("  LoRA      : QLoRA with gradient checkpointing")
