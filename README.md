@@ -117,19 +117,19 @@ graph TB
 
 ## Creator's Note
 
-I'm **Rakibul Hasan (Rhasan@dev)**. I don't have a BSc degree — my admission was canceled due to poor CG. But in this AI era, you can achieve anything with the right guidance and 2–4 months of focused work.
+I'm **Rakibul Hasan (Rhasan@dev)**. I don't hold a university degree — my academic journey took a different turn when I couldn't meet the required CG to continue. Formal education and personal capability don't always align, but I believe every setback is a redirection. In this AI era, your willingness to learn matters more than your certificates.
 
-I started as an indie dev with Godot 4.4.2 and GDScript. Then I moved to React, Next.js, TailwindCSS, TypeScript — building small projects with AI assistance. That led me to ask: *What if I could run a capable AI model on my own machine — with zero cost — and truly understand how it works?*
+I started as an indie dev with Godot 4.4.2 and GDScript. Then I moved to React, Next.js, TailwindCSS, TypeScript — building small projects with AI assistance. That led me to ask: *What if I could run a capable AI model on my own machine — with zero cost — and truly understand how it works under the hood?*
 
-I studied the big players: Claude, Grok, DeepSeek, Llama, and most recently Moonshot's Kimi K2. Their outputs are incredible — but every API call costs money. As a developer with no budget for subscriptions, I realized my hardware was the only resource I could fully control.
+I studied the big players: Claude, Grok, DeepSeek, Llama, and Moonshot's Kimi K2. Their outputs are incredible — but every API call carries a cost. As a developer with no budget for subscriptions, I realized my existing hardware was the only resource I could fully control.
 
-So I asked a different question: *Instead of paying for AI, why not build something that wrings every drop of performance out of the hardware I already own?*
+So I asked a different question: *Instead of paying for AI, why not build something that extracts maximum performance from the hardware I already own?*
 
-This project is the answer. It's built on the belief that **Bangladesh doesn't need expensive GPUs or cloud credits to participate in the AI revolution** — we need software that respects the hardware we have, tools that work offline, and knowledge that stays open.
+This project is the answer. It's built on the belief that **Bangladesh doesn't need expensive GPUs or cloud credits to participate in the AI revolution** — we need well-optimized software that respects the hardware available, tools that work offline, and knowledge that stays open for everyone.
 
-If a college dropout from Bangladesh can fine-tune a model, build an agentic CLI with 30 tools, and ship a complete local AI platform — imagine what a generation of motivated developers can do with the same tools.
+University education builds a strong foundation — and I respect that deeply. But passion, discipline, and curiosity can take you just as far when you commit to learning continuously. If one developer from Bangladesh can fine-tune a model, build an agentic CLI with 30 tools, and ship a complete local AI platform through self-study and iteration — imagine what a community of motivated learners can achieve with the same approach.
 
-This isn't just a project. It's a proof that **with CPU-only hardware, zero budget, and stubborn curiosity, you can build anything.**
+This isn't just a project. It's proof that **with accessible tools, consistent effort, and the freedom to learn on your own terms, you can build anything.**
 
 — *Rakibul Hasan (Rhasan@dev)*
 
