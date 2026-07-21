@@ -23,12 +23,39 @@
 
 ## Overview
 
-Phi-3 Custom Model is a complete local AI platform that lets you:
+**Phi-3 Custom Model** is a complete, free, open-source local AI platform — from fine-tuning to agentic CLI to benchmarking — all running on **CPU-only hardware** with zero cloud dependencies.
 
-- **Fine-tune** Phi-3/Phi-4 models on custom data with LoRA/QLoRA
-- **Quantize** to GGUF format for efficient local inference
-- **Run** a fully-featured agentic CLI with 30 tools, RAG, and streaming
-- **Benchmark** against LiveBench to measure performance
+Unlike most local AI tools that are just model runners (Ollama, LM Studio), this is a full-stack platform:
+
+| What others do | What this also does |
+|---|---|
+| Run GGUF models | **Fine-tune** Phi-3/Phi-4 with LoRA/QLoRA + quantize to GGUF |
+| Chat interface | **Agentic CLI** with 30 built-in tools, RAG, memory, safety |
+| Basic inference | **CPU-optimized engine** with AutoTuner + Windows Job Object throttling |
+| Standard benchmarks | **LiveBench harness** — 27 questions, 13 tasks, 5 categories |
+| API server | **Docker deployment**, API gateway, monitoring, MCP support |
+
+### Why this instead of Ollama / LM Studio / Jan?
+
+| Feature | Ollama | LM Studio | Jan | GPT4All | **This Project** |
+|---|---|---|---|---|---|
+| License | MIT | Proprietary | AGPL-3.0 | MIT | **MIT** |
+| Fine-tune models | No | No | No | No | **Yes (LoRA/QLoRA)** |
+| Quantize to GGUF | No | No | No | No | **Yes** |
+| Agentic CLI (30 tools) | No | No | No | No | **Yes** |
+| Built-in RAG | No | No | Partial | LocalDocs | **Yes (GGUF embeddings)** |
+| CPU throttle control | No | No | No | No | **Yes (Windows Job Object)** |
+| LiveBench integration | No | No | No | No | **Yes (27 questions, 5 categories)** |
+| Multi-backend (llamacpp/Ollama/OpenAI) | Single | Single | Single | Single | **All 4 backends** |
+| Hardware | Any | Any | Any | Any | **CPU-first, 8 GB RAM minimum** |
+| Cost | Free | Free (closed) | Free | Free | **Free & open source** |
+
+### What you can build
+
+- **Fine-tune** Phi-3/Phi-4 models on custom data with memory-efficient LoRA/QLoRA
+- **Quantize** to GGUF for efficient local inference
+- **Run** a fully-featured agentic CLI with 30 tools, RAG, memory, safety, and streaming
+- **Benchmark** against LiveBench across 13 tasks and 5 categories — real model inference, not stubs
 - **Deploy** with Docker, API gateway, and monitoring
 
 All running **100% locally** — no cloud, no API keys, no data leaving your machine.
