@@ -214,6 +214,9 @@ class TUI:
                 "  /model [path]    show or set the model\n"
                 "  /backend [name]  show or set backend (llamacpp/ollama/openai/auto)\n"
                 "  /cpu [percent]   show or set CPU cap (0-100)\n"
+                "  /search <query>  search past sessions\n"
+                "  /export [file]   export session as markdown\n"
+                "  /plugins         load custom plugins\n"
                 "  /json            toggle raw JSON output\n"
                 "  /exit, /quit     leave the CLI\n\n"
                 "Tool commands (type directly):\n"
@@ -270,6 +273,33 @@ class TUI:
                     self._add_system_message("invalid number for /cpu")
             else:
                 self._add_system_message(f"cpu_percent: {self.cli.config.get('cpu_percent')}")
+        elif cmd == "search":
+            if arg:
+                results = self.cli.search_sessions(arg)
+                res_list = results.get("results", [])
+                if res_list:
+                    msg = f"Found {len(res_list)} sessions with matches for '{arg}':\n"
+                    for r in res_list[:3]:
+                        msg += f"  Session {r['session_id']}: {r['total_matches']} matches\n"
+                        for m in r.get("matches", [])[:2]:
+                            msg += f"    - {m.get('role')}: {m.get('content', '')[:80]}...\n"
+                else:
+                    msg = f"No matches found for '{arg}'"
+                self._add_system_message(msg)
+            else:
+                self._add_system_message("Usage: /search <query>")
+        elif cmd == "export":
+            filepath = arg or f"session_{self.cli.session.id}.md"
+            result = self.cli.export_session_markdown(filepath)
+            if result.get("success"):
+                self._add_system_message(f"Session exported to: {result['filepath']} ({result['messages']} messages)")
+            else:
+                self._add_system_message(f"Export failed: {result.get('error')}")
+        elif cmd == "plugins":
+            result = self.cli.load_plugins()
+            self._add_system_message(f"Plugins loaded: {result.get('loaded', 0)}")
+            if result.get("plugins"):
+                self._add_system_message(f"Active: {', '.join(result['plugins'])}")
         else:
             self._add_system_message(f"unknown command: /{cmd}  (try /help)")
 

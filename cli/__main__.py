@@ -354,6 +354,9 @@ def _slash(cli: AgenticCLI, line: str, commands: set, json_mode: bool):
         print("  /model [path]    show or set the model")
         print("  /backend [name]  show or set backend (llamacpp/ollama/openai/auto)")
         print("  /cpu [percent]   show or set CPU cap (0-100)")
+        print("  /search <query>  search past sessions")
+        print("  /export [file]   export session as markdown")
+        print("  /plugins         load custom plugins")
         print("  /json            toggle raw JSON output")
         print("  /exit, /quit     leave the CLI")
         print("\nTool commands (type directly):")
@@ -426,6 +429,8 @@ def _command_names(parser: argparse.ArgumentParser) -> set:
 
 
 def _build_parser() -> argparse.ArgumentParser:
+    __version__ = "0.1.0"
+
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument(
         "--json", action="store_true", default=argparse.SUPPRESS, help="Print raw JSON output."
@@ -436,6 +441,8 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Agentic CLI - execute real commands and chat with a local model.",
         parents=[common],
     )
+    parser.add_argument("--version", "-V", action="version", version=f"%(prog)s {__version__}")
+    parser.add_argument("--verbose", "-v", action="store_true", default=False, help="Enable verbose/debug output.")
     parser.add_argument("--working-dir", "-C", default=None, help="Working directory for the session.")
     parser.add_argument("--backend", default=None, help="Model backend: auto, ollama, openai, echo.")
     parser.add_argument("--model", default=None, help="Model name to use for chat.")
@@ -553,13 +560,95 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("value", nargs="?")
 
     p = sub.add_parser("sessions", help="Manage saved sessions.", parents=[common])
-    p.add_argument("action", choices=["list", "save", "load"])
+    p.add_argument("action", choices=["list", "save", "load", "search"])
     p.add_argument("session_id", nargs="?")
 
+    sub.add_parser("health", help="Run health check on all components.", parents=[common])
     sub.add_parser("repl", help="Start an interactive REPL.", parents=[common])
     sub.add_parser("demo", help="Print a capability overview.", parents=[common])
 
     return parser
+
+
+def _health_check(cli: AgenticCLI) -> None:
+    """Run a comprehensive health check."""
+    bar = "=" * 60
+    print(bar)
+    print("  HEALTH CHECK")
+    print(bar)
+
+    checks = []
+
+    # System
+    checks.append(("System", "OK", f"{cli._system_info.get('os')} {cli._system_info.get('arch')}"))
+
+    # Backend
+    try:
+        name = cli.backend.name
+        checks.append(("Backend", "OK", name))
+    except Exception as e:
+        checks.append(("Backend", "FAIL", str(e)[:50]))
+
+    # RAG
+    if cli._rag_engine:
+        checks.append(("RAG Engine", "OK", "Initialized"))
+    else:
+        checks.append(("RAG Engine", "SKIP", "Not available"))
+
+    # Memory
+    if cli._memory:
+        checks.append(("Memory", "OK", "Initialized"))
+    else:
+        checks.append(("Memory", "SKIP", "Not available"))
+
+    # Safety
+    if cli._safety:
+        checks.append(("Safety Layer", "OK", "Initialized"))
+    else:
+        checks.append(("Safety Layer", "SKIP", "Not available"))
+
+    # Extended Thinking
+    if cli._extended_thinker:
+        checks.append(("Extended Thinking", "OK", "Initialized"))
+    else:
+        checks.append(("Extended Thinking", "SKIP", "Not available"))
+
+    # Tool Registry
+    if cli._tool_registry:
+        checks.append(("Tool Registry", "OK", "Initialized"))
+    else:
+        checks.append(("Tool Registry", "SKIP", "Not available"))
+
+    # Tools
+    checks.append(("Tools", "OK", f"{len(cli.tools)} available"))
+
+    # Config
+    config_path = cli._paths()["config"]
+    if config_path.exists():
+        checks.append(("Config", "OK", str(config_path)))
+    else:
+        checks.append(("Config", "WARN", "No config file found"))
+
+    # Sessions dir
+    sessions_path = cli._paths()["sessions"]
+    if sessions_path.exists():
+        session_count = len(list(sessions_path.glob("*.json")))
+        checks.append(("Sessions", "OK", f"{session_count} saved"))
+    else:
+        checks.append(("Sessions", "WARN", "No sessions directory"))
+
+    # Print results
+    passed = sum(1 for _, status, _ in checks if status == "OK")
+    failed = sum(1 for _, status, _ in checks if status == "FAIL")
+    warnings = sum(1 for _, status, _ in checks if status == "WARN")
+
+    for name, status, detail in checks:
+        icon = {"OK": "[OK]", "FAIL": "[FAIL]", "WARN": "[WARN]", "SKIP": "[SKIP]"}[status]
+        print(f"  {icon:<8} {name:<20} {detail}")
+
+    print("-" * 60)
+    print(f"  Result: {passed} passed, {failed} failed, {warnings} warnings")
+    print(bar)
 
 
 def main(argv: Optional[list] = None) -> int:
@@ -580,6 +669,10 @@ def main(argv: Optional[list] = None) -> int:
 
     if args.command is None or args.command == "repl":
         return _repl(cli, getattr(args, "json", False))
+
+    if args.command == "health":
+        _health_check(cli)
+        return 0
 
     return _dispatch(cli, args)
 

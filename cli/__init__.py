@@ -184,6 +184,85 @@ class AgenticCLI:
         ids = sorted(p.stem for p in paths["sessions"].glob("*.json"))
         return {"success": True, "sessions": ids, "count": len(ids)}
 
+    def search_sessions(self, query: str) -> dict:
+        """Search saved sessions for matching content."""
+        paths = self._paths()
+        if not paths["sessions"].exists():
+            return {"success": True, "results": []}
+
+        results = []
+        query_lower = query.lower()
+        for session_file in paths["sessions"].glob("*.json"):
+            try:
+                data = json.loads(session_file.read_text(encoding="utf-8"))
+                messages = data.get("messages", [])
+                matches = []
+                for msg in messages:
+                    content = msg.get("content", "").lower()
+                    if query_lower in content:
+                        matches.append({
+                            "role": msg.get("role"),
+                            "content": msg.get("content", "")[:200],
+                        })
+                if matches:
+                    results.append({
+                        "session_id": session_file.stem,
+                        "matches": matches[:5],
+                        "total_matches": len(matches),
+                    })
+            except Exception:
+                continue
+
+        return {"success": True, "results": results, "query": query}
+
+    def export_session_markdown(self, filepath: str = None) -> dict:
+        """Export current session as markdown."""
+        if not filepath:
+            filepath = f"session_{self.session.id}.md"
+
+        lines = [f"# Session {self.session.id}\n"]
+        lines.append(f"**Date**: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n")
+        lines.append(f"**Working Directory**: {self.working_dir}\n\n")
+        lines.append("---\n\n")
+
+        for msg in self.session.messages:
+            role = msg.role.value.capitalize()
+            lines.append(f"## {role}\n\n")
+            lines.append(f"{msg.content}\n\n")
+
+        try:
+            Path(filepath).write_text("\n".join(lines), encoding="utf-8")
+            return {"success": True, "filepath": filepath, "messages": len(self.session.messages)}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def load_plugins(self) -> dict:
+        """Load custom plugins from ~/.agentic_cli/plugins/."""
+        plugins_dir = self.HOME_DIR / "plugins"
+        if not plugins_dir.exists():
+            plugins_dir.mkdir(parents=True, exist_ok=True)
+            return {"success": True, "loaded": 0, "message": "Plugins directory created"}
+
+        loaded = []
+        errors = []
+        for plugin_file in plugins_dir.glob("*.py"):
+            try:
+                import importlib.util
+                spec = importlib.util.spec_from_file_location(
+                    plugin_file.stem, str(plugin_file)
+                )
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+
+                # Look for register function
+                if hasattr(module, "register"):
+                    result = module.register(self)
+                    loaded.append(plugin_file.stem)
+            except Exception as e:
+                errors.append({"file": plugin_file.name, "error": str(e)})
+
+        return {"success": True, "loaded": len(loaded), "plugins": loaded, "errors": errors}
+
     def _append_history(self, entry: str):
         """Append a line to the persistent command history log."""
         paths = self._paths()
