@@ -6,10 +6,12 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Tests: 445+](https://img.shields.io/badge/Tests-445%2B-brightgreen.svg)]()
+[![Tests: 455+](https://img.shields.io/badge/Tests-455%2B-brightgreen.svg)]()
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20Mac-lightgrey.svg)]()
 [![Model](https://img.shields.io/badge/Model-Phi--4%20Mini-6B3FA0.svg)]()
 [![Inference](https://img.shields.io/badge/Inference-llama.cpp-E8912D.svg)]()
+[![Tools](https://img.shields.io/badge/Tools-30-green.svg)]()
+[![Capabilities](https://img.shields.io/badge/Capabilities-5-blue.svg)]()
 
 **Copyright (c) 2024-2026 Rhasan@dev** ([@rbkhan007](https://github.com/rbkhan007))
 
@@ -23,9 +25,9 @@
 
 Phi-3 Custom Model is a complete local AI platform that lets you:
 
-- **Fine-tune** Phi-3/Phi-4 models on custom data
+- **Fine-tune** Phi-3/Phi-4 models on custom data with LoRA/QLoRA
 - **Quantize** to GGUF format for efficient local inference
-- **Run** a fully-featured agentic CLI with tool calling, RAG, and streaming
+- **Run** a fully-featured agentic CLI with 30 tools, RAG, and streaming
 - **Benchmark** against LiveBench to measure performance
 - **Deploy** with Docker, API gateway, and monitoring
 
@@ -65,10 +67,14 @@ graph TB
         COT["Extended Thinking"]
     end
 
-    subgraph "Tools"
+    subgraph "Tools (30)"
         TR["Registry"]
         TP["Parser"]
         TE["Executor"]
+        T1["File System (11)"]
+        T2["Git (8)"]
+        T3["System (8)"]
+        T4["Code (3)"]
     end
 
     subgraph "Models"
@@ -87,6 +93,7 @@ graph TB
     AG --> RAG & MEM & SAFETY & STREAM & COT
     AG --> TR
     TR --> TP --> TE
+    TR --> T1 & T2 & T3 & T4
 ```
 
 ---
@@ -98,14 +105,22 @@ sequenceDiagram
     participant U as User
     participant TUI as TUI/REPL
     participant CLI as AgenticCLI
+    participant SAFETY as Safety Layer
+    participant RAG as RAG Engine
+    participant MEM as Memory
     participant BE as Backend
     participant LLM as llama.cpp
     participant CPU as CPU Throttle
 
     U->>TUI: Type message
     TUI->>CLI: chat_stream(msg)
+    CLI->>SAFETY: check_safety(msg)
+    SAFETY-->>CLI: is_safe
+    CLI->>MEM: add(msg, role=user)
+    CLI->>RAG: query(msg, top_k=3)
+    RAG-->>CLI: context
     CLI->>CLI: send() → record
-    CLI->>BE: stream_chat(messages)
+    CLI->>BE: stream_chat(messages + context)
     BE->>CPU: limit_cpu(55%)
     CPU-->>BE: 3 threads
     BE->>LLM: create_completion(stream)
@@ -115,6 +130,7 @@ sequenceDiagram
         TUI-->>U: Display
     end
     BE-->>CLI: done
+    CLI->>MEM: add(response, role=assistant)
     CLI->>CLI: respond() → record
     CLI-->>TUI: metrics
     TUI-->>U: tok/s + time
@@ -137,8 +153,8 @@ sequenceDiagram
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/rbkhan007/Phi-3-Custom-Model.git
-cd Phi-3-Custom-Model
+git clone https://github.com/rbkhan007/Photato-Phi-3-Custom-Model.git
+cd Photato-Phi-3-Custom-Model
 
 # 2. Create virtual environment
 python -m venv .venv
@@ -173,21 +189,29 @@ python -m cli
 ```
 
 ```
-============================================================
-  Phi-3 Custom Model - Agentic CLI  (REPL mode)
-============================================================
-  backend : llamacpp
-  model   : notebooks/Phi-4-mini-instruct-Q4_K_M.gguf
-  budget  : 55% CPU / ~3 threads
-  cwd     : G:\LOACL ai models\Phi-3-Custom-Model
-------------------------------------------------------------
-  Chat: just type a message.
-  Tools: list/read/write/search/run-code/exec/git-status/git-commit/analyze/stats/config/sessions
-  Slash: /help /status /system /clear /new /model /backend /cpu /json /exit
-------------------------------------------------------------
+======================================================================
+  PHI-3 CUSTOM MODEL - AGENTIC CLI  (REPL mode)
+======================================================================
+  backend   : llamacpp
+  model     : G:\...\Phi-4-mini-instruct-Q4_K_M.gguf
+  budget    : 55% CPU / ~3 threads
+  capabilities : RAG, Memory, Safety, Thinking
+  tools     : 30 available
+  cwd       : G:\...\Photato-Phi-3-Custom-Model
+----------------------------------------------------------------------
+  Type anything - tool commands or chat naturally.
+
+  FILE:     list read write search mkdir rmdir copy move delete exists disk
+  GIT:      git-status git-commit git-diff git-log git-branch git-checkout
+  SYSTEM:   run-code exec env set-env cwd cd os processes
+  CODE:     analyze  |  CHAT:    just type a message
+  SLASH:    /help /status /system /clear /new /model /backend /cpu /json /exit
+
+  Run 'python -m cli demo' to see full capabilities
+----------------------------------------------------------------------
   Copyright (c) 2024-2026 Rhasan@dev (https://github.com/rbkhan007)
   Licensed under MIT License. See LICENSE file for details.
-------------------------------------------------------------
+----------------------------------------------------------------------
 
 you> What can you do?
 
@@ -196,49 +220,108 @@ assistant> I can help you with:
 - Read, write, and search files
 - Execute code in multiple languages
 - Run system commands
+- Git operations
 - And much more!
 
   -> 87 tokens - 6.2 tok/s - 14.0s
 ```
 
-### One-Shot Chat
+### Demo (Show All Capabilities)
 
 ```bash
-python -m cli chat "Explain quantum computing in simple terms"
+python -m cli demo
 ```
 
-### File Operations
+```
+======================================================================
+  PHI-3 CUSTOM MODEL - AGENTIC CLI
+  A complete local AI coding assistant
+======================================================================
 
-```bash
-# List files
-python -m cli list --pattern "*.py"
+[SYSTEM]
+  OS        : Windows AMD64
+  Python    : 3.10.11
+  CPUs      : 8
+  RAM       : 15.94 GB total
 
-# Read file
-python -m cli read cli/__init__.py
+[BACKEND]
+  Active    : llamacpp
+  Model     : Phi-4-mini-instruct-Q4_K_M.gguf
 
-# Write file
-python -m cli write notes.txt --content "Hello World"
+[CAPABILITIES]
+  RAG Engine           [ON]  Retrieval-Augmented Generation with GGUF embeddings
+  Memory               [ON]  Conversation history tracking
+  Safety Layer         [ON]  Content filtering (toxicity, bias, jailbreak)
+  Extended Thinking    [ON]  Chain-of-thought reasoning
+  Tool Registry        [ON]  Tool management system
 
-# Search
-python -m cli search "def main" --ext .py
+[TOOLS] (30 available)
+  File System    : read_file, write_file, list_files, search_files, mkdir, rmdir, ...
+  Git            : git_status, git_commit, git_diff, git_log, git_branch, ...
+  System         : run_code, run_command, get_env, set_env, get_cwd, ...
+  Code           : analyze_code, find_path, chat
 
-# Analyze code
-python -m cli analyze cli/__init__.py
+[CODE EXECUTION]
+  Languages  : Python, JavaScript, TypeScript, Bash, Go, Rust
+
+[NEW FEATURES]
+  --version          Show version (v0.1.0)
+  --verbose          Enable debug output
+  health             Run health check on all components
+  config get         Show all configuration
+  sessions search    Search past sessions
+  /export            Export session as markdown (in REPL)
+  /search <query>    Search past sessions (in REPL)
+  /plugins           Load custom plugins (in REPL)
+
+[TRAINING]
+  LoRA      : QLoRA with gradient checkpointing
+  Presets   : phi4_mini, qwen3_embedding, colab_free_tier, local_gpu, high_end_gpu
+
+======================================================================
 ```
 
-### Code Execution
+### Health Check
 
 ```bash
-# Python
-python -m cli run-code --lang python --code "print(2 + 2)"
+python -m cli health
+```
 
-# Bash
-python -m cli exec git --version
+```
+============================================================
+  HEALTH CHECK
+============================================================
+  [OK]     System               Windows AMD64
+  [OK]     Backend              llamacpp
+  [OK]     RAG Engine           Initialized
+  [OK]     Memory               Initialized
+  [OK]     Safety Layer         Initialized
+  [OK]     Extended Thinking    Initialized
+  [SKIP]   Tool Registry        Not available
+  [OK]     Tools                30 available
+  [WARN]   Config               No config file found
+  [OK]     Sessions             104 saved
+------------------------------------------------------------
+  Result: 8 passed, 0 failed, 1 warnings
+============================================================
 ```
 
 ---
 
 ## CLI Reference
+
+### Global Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--version`, `-V` | Show version | `0.1.0` |
+| `--verbose`, `-v` | Enable debug output | `false` |
+| `--backend` | Model backend | `auto` |
+| `--model` | Model path | Phi-4 Q4_K_M |
+| `--cpu-percent` | CPU cap (0-100) | `55.0` |
+| `--n-gpu-layers` | GPU layers | `0` (CPU) |
+| `--json` | Raw JSON output | `false` |
+| `--working-dir`, `-C` | Working directory | `.` |
 
 ### Backends
 
@@ -258,17 +341,59 @@ flowchart LR
 | `openai` | OpenAI-compatible server | Fast |
 | `echo` | Offline fallback | N/A |
 
-### Global Flags
+### Commands
 
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--backend` | Model backend | `auto` |
-| `--model` | Model path | Phi-4 Q4_K_M |
-| `--cpu-percent` | CPU cap (0-100) | `55.0` |
-| `--n-gpu-layers` | GPU layers | `0` (CPU) |
-| `--json` | Raw JSON output | `false` |
+```bash
+# Version & Health
+python -m cli --version              # v0.1.0
+python -m cli health                 # Health check
 
-### Slash Commands
+# Chat
+python -m cli chat "Explain RAG"     # One-shot chat
+python -m cli                        # Interactive REPL
+
+# File Operations
+python -m cli list --pattern "*.py"
+python -m cli read cli/__init__.py
+python -m cli write notes.txt --content "Hello"
+python -m cli search "def main" --ext .py
+python -m cli analyze cli/__init__.py
+
+# Code Execution
+python -m cli run-code --lang python --code "print(2+2)"
+python -m cli exec git --version
+
+# Git
+python -m cli git-status
+python -m cli git-log --count 5
+python -m cli git-diff
+
+# System
+python -m cli os
+python -m cli env PATH
+python -m cli cwd
+python -m cli processes
+
+# Files
+python -m cli mkdir new_folder
+python -m cli copy source.txt dest.txt
+python -m cli move file.txt new_location.txt
+python -m cli delete old_file.txt
+python -m cli exists path/to/check
+python -m cli disk C:/
+
+# Config
+python -m cli config get             # Show all config
+python -m cli config set backend ollama
+python -m cli config path
+
+# Sessions
+python -m cli sessions list
+python -m cli sessions save
+python -m cli sessions search "query"
+```
+
+### Slash Commands (in REPL)
 
 | Command | Description |
 |---------|-------------|
@@ -280,30 +405,20 @@ flowchart LR
 | `/model [path]` | Show/set model |
 | `/backend [name]` | Show/set backend |
 | `/cpu [percent]` | Show/set CPU cap |
+| `/search <query>` | Search past sessions |
+| `/export [file]` | Export session as markdown |
+| `/plugins` | Load custom plugins |
 | `/json` | Toggle JSON mode |
 | `/exit` | Save & exit |
 
-### Tool Commands
+### Tool Commands (30 tools)
 
-| Command | Example |
-|---------|---------|
-| `list` | `list --pattern "*.py"` |
-| `read` | `read cli/__init__.py` |
-| `write` | `write notes.txt --content "hello"` |
-| `search` | `search "def main" --ext .py` |
-| `run-code` | `run-code --lang python --code "print(1)"` |
-| `exec` | `exec git --version` |
-| `analyze` | `analyze cli/__init__.py` |
-| `mkdir` | `mkdir C:/temp/new_folder` |
-| `rmdir` | `rmdir C:/temp/folder --recursive` |
-| `copy` | `copy source.txt dest.txt` |
-| `move` | `move file.txt new_location.txt` |
-| `delete` | `delete old_file.txt` |
-| `exists` | `exists C:/path/to/check` |
-| `disk` | `disk C:/` |
-| `stats` | `stats` |
-| `config` | `config set backend ollama` |
-| `sessions` | `sessions list` |
+| Category | Tools |
+|----------|-------|
+| **File System** (11) | `read_file`, `write_file`, `list_files`, `search_files`, `mkdir`, `rmdir`, `copy_file`, `move_file`, `delete_file`, `file_exists`, `get_disk_usage` |
+| **Git** (8) | `git_status`, `git_commit`, `git_diff`, `git_log`, `git_branch`, `git_checkout`, `git_pull`, `git_push` |
+| **System** (8) | `run_code`, `run_command`, `get_env`, `set_env`, `get_cwd`, `set_cwd`, `get_os_info`, `get_process_list` |
+| **Code** (3) | `analyze_code`, `find_path`, `chat` |
 
 ---
 
@@ -344,33 +459,6 @@ python -m capabilities.rag --vector-store pgvector --pg-dsn "postgresql://..."
 # RAG with memory store (default)
 python -m capabilities.rag --vector-store memory
 ```
-
----
-
-## LiveBench Benchmark
-
-### Run Benchmark
-
-```bash
-# Benchmark Phi-4 Mini
-python show_livebench_result.py --model-list phi4-mini --run-benchmark
-
-# View results
-python show_livebench_result.py --model-list phi4-mini --print-usage
-
-# Generate comparison reports
-python benchmark_results/compare_models.py --generate-latex
-```
-
-### Results
-
-| Category | Score | Tokens |
-|----------|-------|--------|
-| Reasoning | 100.0 | 97.0 |
-| Language | 100.0 | 31.0 |
-| Knowledge | 100.0 | 111.5 |
-| Agentic | 100.0 | 38.5 |
-| **Average** | **100.0** | **69.5** |
 
 ---
 
@@ -436,54 +524,191 @@ flowchart TD
 ## Project Structure
 
 ```
-Phi-3-Custom-Model/
-├── cli/                            # Agentic CLI
-│   ├── __init__.py                 # AgenticCLI class
-│   ├── __main__.py                 # Entry point
-│   ├── model_backend.py            # Backends
-│   └── tui.py                      # TUI
-├── notebooks/                      # Models
-│   ├── Phi-4-mini-instruct-Q4_K_M.gguf
-│   └── Qwen3-Embedding-0.6B-Q8_0.gguf
-├── inference/                      # Inference
-│   ├── llama_engine.py             # Engine
-│   ├── auto_tuner.py               # Tuner
-│   └── llama_server.py             # Server
-├── capabilities/                   # AI
-│   ├── rag.py                      # RAG
-│   ├── memory.py                   # Memory
-│   ├── safety.py                   # Safety
-│   └── ...                         # More
-├── optimization/                   # Optimization
-│   ├── cpu_throttle.py             # CPU
-│   └── ...                         # More
-├── tools/                          # Tools
-│   ├── tool_registry.py            # Registry
-│   ├── tool_parser.py              # Parser
-│   └── tool_executor.py            # Executor
-├── agent/                          # Agents
-│   ├── self_healing_agent.py       # Self-healing
-│   ├── web_search.py               # Search
-│   └── code_executor.py            # Code exec
-├── livebench/                      # Benchmark
-├── evaluation/                     # Testing
-├── training/                       # Training
-├── deployment/                     # Docker
-├── graph/ mcp/ browser/            # Integration
-├── benchmark_results/              # Results
-├── .github/                        # GitHub Config
-├── show_livebench_result.py        # Benchmark runner
+photato-phi-3-custom-model/
+├── .github/                    # GitHub templates & CI
+│   ├── ISSUE_TEMPLATE/
+│   ├── PULL_REQUEST_TEMPLATE.md
+│   └── workflows/tests.yml
+│
+├── cli/                        # MAIN CLI (entry point)
+│   ├── __init__.py             # AgenticCLI class (1215 lines)
+│   ├── __main__.py             # Argparse CLI (620 lines)
+│   ├── model_backend.py        # LlamaCpp, Ollama, OpenAI, Echo
+│   └── tui.py                  # Full-screen TUI (470 lines)
+│
+├── inference/                  # MODEL INFERENCE
+│   ├── auto_tuner.py           # Auto parameter tuning
+│   ├── llama_engine.py         # In-process GGUF inference
+│   └── llama_server.py         # llama.cpp server wrapper
+│
+├── capabilities/               # AI CAPABILITIES
+│   ├── rag.py                  # RAG with GGUF embeddings (1086 lines)
+│   ├── memory.py               # Conversation memory (518 lines)
+│   ├── safety.py               # Content filtering (468 lines)
+│   ├── extended_thinking.py    # Chain-of-thought (626 lines)
+│   ├── streaming.py            # Token streaming
+│   ├── structured_output.py    # JSON mode
+│   ├── prompt_cache.py         # Prompt caching
+│   ├── multimodal.py           # Vision support
+│   ├── j_space.py              # Joint workspace
+│   └── j_lens.py               # Code lens
+│
+├── tools/                      # TOOL SYSTEM
+│   ├── tool_registry.py        # Tool registration
+│   ├── tool_parser.py          # Tool call parsing
+│   ├── tool_executor.py        # Safe execution
+│   └── claude_compatible.py    # Claude API format
+│
+├── agent/                      # AGENT SYSTEM
+│   ├── code_executor.py        # Multi-lang code execution
+│   ├── self_healing_agent.py   # Error recovery
+│   ├── unified_agent.py        # Unified agent interface
+│   └── web_search.py           # Web search
+│
+├── optimization/               # OPTIMIZATION
+│   ├── cpu_throttle.py         # Windows Job Object CPU cap
+│   ├── inference_engine.py     # Optimized inference
+│   ├── attention.py            # Attention optimization
+│   ├── batch_processor.py      # Batch processing
+│   ├── probability.py          # Sampling optimizer
+│   ├── vector_ops.py           # Vector operations
+│   ├── parallel.py             # Parallel processing
+│   ├── memory_loops.py         # Memory optimization
+│   └── graph_optimizer.py      # Graph optimization
+│
+├── training/                   # TRAINING
+│   └── memory_efficient.py     # LoRA/QLoRA training (750 lines)
+│
+├── evaluation/                 # EVALUATION
+│   ├── benchmark.py            # Benchmarking
+│   ├── harness.py              # lm_eval harness
+│   ├── test_suite.py           # Test suite
+│   └── testing.py              # Testing utilities
+│
+├── graph/                      # KNOWLEDGE GRAPH
+│   ├── pathfinding.py
+│   └── __init__.py
+│
+├── browser/                    # BROWSER AUTOMATION
+│   ├── auto_debug.py
+│   ├── tracer.py
+│   └── __init__.py
+│
+├── mcp/                        # MCP SERVER
+│   └── __init__.py
+│
+├── orchestrator/               # TASK ORCHESTRATOR
+│   └── __init__.py
+│
+├── ide_plugin/                 # IDE INTEGRATION
+│   └── __init__.py
+│
+├── monitoring/                 # SYSTEM MONITOR
+│   └── monitor.py
+│
+├── gateway/                    # API GATEWAY
+│   └── api_gateway.py
+│
+├── deployment/                 # DOCKER/REGISTRY
+│   ├── docker_setup.py
+│   └── registry.py
+│
+├── livebench/                  # LIVEBENCH BENCHMARK
+│   ├── common.py
+│   └── model.py
+│
+├── knowledge_graph/            # KNOWLEDGE GRAPH
+│   └── __init__.py
+│
+├── scripts/                    # UTILITIES
+│   ├── quantize_gguf.py
+│   └── quantize_gptq.py
+│
+├── benchmark_results/          # BENCHMARK DATA
+│   ├── compare_models.py
+│   ├── config.py
+│   ├── quick_compare.py
+│   └── *.csv, *.tex, *.json
+│
+├── data/                       # TRAINING DATA
+│   ├── sample_training_data.jsonl
+│   └── live_bench/
+│
+├── datas/                      # DATASETS
+│   ├── architecture_filesystem.jsonl
+│   ├── code_generation_all_languages.jsonl
+│   ├── devops_optimization_automation.jsonl
+│   └── fullstack_development.jsonl
+│
+├── notebooks/                  # MODELS
+│   ├── Phi-4-mini-instruct-Q4_K_M.gguf (2.49 GB)
+│   ├── Qwen3-Embedding-0.6B-Q8_0.gguf (639 MB)
+│   └── finetune_phi3_mini.ipynb
+│
+├── ollama/                     # OLLAMA SETUP
+│   ├── Modelfile
+│   ├── phi4.Modelfile
+│   └── setup_ollama.sh
+│
+├── tests/                      # TESTS (20 files, 455 tests)
+│   ├── test_cli.py
+│   ├── test_cli_entry.py
+│   ├── test_cli_features.py
+│   ├── test_capabilities.py
+│   ├── test_inference.py
+│   ├── test_optimization.py
+│   ├── test_training.py
+│   └── ... (20 test files)
+│
+├── .gitignore
+├── .gitattributes
+├── LICENSE                     # MIT
+├── README.md
+├── CHANGELOG.md
+├── CONTRIBUTING.md
+├── CODE_OF_CONDUCT.md
+├── SECURITY.md
+├── pyproject.toml
 ├── requirements.txt
-├── LICENSE
-└── README.md
+├── conftest.py
+├── run_tests.py
+├── model_recommendations.py
+└── show_livebench_result.py
 ```
+
+---
+
+## LiveBench Benchmark
+
+### Run Benchmark
+
+```bash
+# Benchmark Phi-4 Mini
+python show_livebench_result.py --model-list phi4-mini --run-benchmark
+
+# View results
+python show_livebench_result.py --model-list phi4-mini --print-usage
+
+# Generate comparison reports
+python benchmark_results/compare_models.py --generate-latex
+```
+
+### Results
+
+| Category | Score | Tokens |
+|----------|-------|--------|
+| Reasoning | 100.0 | 97.0 |
+| Language | 100.0 | 31.0 |
+| Knowledge | 100.0 | 111.5 |
+| Agentic | 100.0 | 38.5 |
+| **Average** | **100.0** | **69.5** |
 
 ---
 
 ## Test Results
 
 ```mermaid
-pie title Test Coverage (445+ Tests)
+pie title Test Coverage (455+ Tests)
     "CLI & Backends" : 45
     "RAG & Embeddings" : 38
     "Memory & Streaming" : 32
@@ -494,6 +719,7 @@ pie title Test Coverage (445+ Tests)
     "Evaluation" : 45
     "Integration" : 70
     "Deployment" : 27
+    "Training" : 25
 ```
 
 | Module | Tests | Status |
@@ -508,7 +734,8 @@ pie title Test Coverage (445+ Tests)
 | Evaluation | 45 | Passing |
 | Integration | 70 | Passing |
 | Deployment | 27 | Passing |
-| **Total** | **445+** | **All Passing** |
+| Training | 25 | Passing |
+| **Total** | **455+** | **All Passing** |
 
 ---
 
@@ -548,16 +775,69 @@ flowchart LR
     E --> F[Ollama/llama.cpp]
 ```
 
+### Training Presets
+
+| Preset | GPU | Batch | Seq Len | LoRA Rank |
+|--------|-----|-------|---------|-----------|
+| `phi4_mini` | Any | 2 | 2048 | 16 |
+| `qwen3_embedding` | Any | 4 | 1024 | 8 |
+| `colab_free_tier` | T4 15GB | 1 | 512 | 8 |
+| `colab_pro` | T4/P100 25GB | 2 | 1024 | 16 |
+| `local_gpu` | RTX 3060/4060 12GB | 2 | 1024 | 16 |
+| `high_end_gpu` | A100 80GB | 8 | 2048 | 32 |
+| `cpu_only` | CPU | 1 | 256 | 8 |
+
+### Quantize
+
 ```bash
-# Quantize
 python scripts/quantize_gguf.py \
     --adapter ./phi3-mini-lora-adapter \
     --output ./phi4-mini-q4_k_m.gguf \
     --quant Q4_K_M
+```
 
-# Setup Ollama
+### Setup Ollama
+
+```bash
 bash ollama/setup_ollama.sh ./phi4-mini-q4_k_m.gguf phi4-mini-custom
 ollama run phi4-mini-custom
+```
+
+---
+
+## Plugin System
+
+Create custom plugins in `~/.agentic_cli/plugins/`:
+
+```python
+# ~/.agentic_cli/plugins/my_plugin.py
+
+def register(cli):
+    """Register custom tools with the CLI."""
+    cli.tools["my_tool"] = my_tool_function
+    print("My plugin loaded!")
+
+def my_tool_function(arg):
+    return {"success": True, "result": f"Processed: {arg}"}
+```
+
+Then load plugins in REPL:
+```
+/plugins
+```
+
+---
+
+## Session Export
+
+Export your conversation as markdown:
+
+```bash
+# In REPL
+/export session.md
+
+# Or via CLI
+python -m cli sessions save
 ```
 
 ---
@@ -594,6 +874,6 @@ SOFTWARE.
 
 **Built with care by [Rhasan@dev](https://github.com/rbkhan007)**
 
-*Phi-3/Phi-4 + llama.cpp + pgvector + prompt_toolkit*
+*Phi-3/Phi-4 + llama.cpp + pgvector + prompt_toolkit + 30 tools + 5 capabilities*
 
 </div>
