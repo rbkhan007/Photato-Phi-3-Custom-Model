@@ -23,6 +23,7 @@ import json
 import time
 import shlex
 import hashlib
+import platform
 import argparse
 from typing import Optional
 
@@ -309,13 +310,15 @@ def _repl(cli: AgenticCLI, as_json: bool, beginner: bool = False) -> int:
         "date": "time",
     }
 
-    if sys.stdin.isatty():
-        try:
-            from cli.tui import run_tui
-            run_tui(cli)
-            return 0
-        except ImportError:
-            pass
+    try:
+        from cli.tui import is_interactive_terminal, run_tui
+
+        if is_interactive_terminal():
+            rc = run_tui(cli)
+            if rc == 0:
+                return 0
+    except ImportError:
+        pass
     # Fallback to basic REPL if TUI unavailable or non-interactive
     _banner(cli, tui_mode=False, beginner=beginner)
     json_mode = as_json
@@ -769,6 +772,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("health", help="Run health check on all components.", parents=[common])
     sub.add_parser("repl", help="Start an interactive REPL.", parents=[common])
+    sub.add_parser("tui", help="Start the IndieCode full-screen TUI.", parents=[common])
     sub.add_parser("demo", help="Print a capability overview.", parents=[common])
 
     # ── Shell & Terminal Commands ──
@@ -915,6 +919,18 @@ def main(argv: Optional[list] = None) -> int:
         demo()
         return 0
 
+    if args.command == "tui":
+        from cli.tui import is_interactive_terminal, run_tui
+
+        if not is_interactive_terminal():
+            print("TUI requires an interactive terminal. Run 'python -m cli' in a terminal window.", file=sys.stderr)
+            return 1
+        cli = AgenticCLI(working_dir=args.working_dir, config={
+            "backend": args.backend, "model": args.model,
+            "n_gpu_layers": args.n_gpu_layers, "cpu_percent": args.cpu_percent,
+        })
+        return run_tui(cli)
+
     override = {
         "backend": args.backend,
         "model": args.model,
@@ -924,7 +940,9 @@ def main(argv: Optional[list] = None) -> int:
     cli = AgenticCLI(working_dir=args.working_dir, config=override)
 
     if args.command is None or args.command == "repl":
-        return _repl(cli, getattr(args, "json", False), beginner=getattr(args, "beginner", False))
+        if args.command == "repl" or not getattr(args, "json", False):
+            return _repl(cli, getattr(args, "json", False), beginner=getattr(args, "beginner", False))
+        return _repl(cli, as_json=True)
 
     if args.command == "health":
         _health_check(cli)

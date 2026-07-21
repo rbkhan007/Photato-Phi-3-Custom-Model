@@ -1,4 +1,4 @@
-"""OpenCode-style TUI built with Textual — Windows PowerShell compatible.
+"""IndieCode-style TUI built with Textual — Windows PowerShell compatible.
 
 Features:
   - Deep dark theme with cyan/amber accents
@@ -50,7 +50,7 @@ TEXT = "#e0e0e0"
 TEXT_DIM = "#888888"
 
 WELCOME_ART = """
-   opencode — AI-powered terminal assistant
+    IndieCode — AI-powered terminal assistant
    Built by Rhasan@dev (https://github.com/rbkhan007)
    Phi-3 / Phi-4 Custom Model · llama.cpp · 100% Local
 """
@@ -258,7 +258,7 @@ class MainScreen(Screen):
 
     def _update_subtext(self) -> None:
         sub = self.query_one("#input-subtext", Static)
-        sub.update(Text("  opencode TUI  |  ctrl+d exit  |  /help for commands  ", style=Style(color=GRAY)))
+        sub.update(Text("  IndieCode TUI  |  ctrl+d exit  |  /help for commands  ", style=Style(color=GRAY)))
 
     def _update_status(self) -> None:
         footer = self.query_one("#status-bar", Footer)
@@ -406,10 +406,10 @@ class MainScreen(Screen):
         self._update_status()
 
 
-class OpenCodeTUI(App):
-    """OpenCode-style TUI using Textual — Windows PowerShell compatible."""
+class IndieCodeTUI(App):
+    """IndieCode-style TUI using Textual — Windows PowerShell compatible."""
 
-    TITLE = "opencode"
+    TITLE = "indiedev"
     SUB_TITLE = "AI-powered terminal assistant"
     CSS = """
     Screen {
@@ -506,12 +506,12 @@ class OpenCodeTUI(App):
         yield MainScreen()
 
     def on_mount(self) -> None:
-        self.title = "opencode"
+        self.title = "indiedev"
         self.sub_title = "AI-powered terminal assistant"
 
 
 def run_tui(cli_instance: Any = None) -> int:
-    """Launch the OpenCode TUI. Returns 0 on success, 1 if terminal not suitable."""
+    """Launch the IndieCode TUI. Returns 0 on success, 1 if terminal not suitable."""
     if not is_interactive_terminal():
         print("Not an interactive terminal. Use python -m cli without pipe for REPL fallback.", file=sys.stderr)
         return 1
@@ -519,7 +519,7 @@ def run_tui(cli_instance: Any = None) -> int:
     _enable_windows_console()
 
     try:
-        app = OpenCodeTUI(cli_instance)
+        app = IndieCodeTUI(cli_instance)
         app.run()
         return 0
     except Exception as e:
