@@ -23,7 +23,7 @@ from datetime import datetime
 
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical, ScrollableContainer
-from textual.widgets import Header, Footer, Static, TextArea, RichLog, Input, Label, Button
+from textual.widgets import Header, Footer, Static, TextArea, Input, Label, Button
 from textual.widgets import Collapsible
 from textual.screen import Screen
 from textual.binding import Binding
@@ -50,7 +50,7 @@ TEXT = "#e0e0e0"
 TEXT_DIM = "#888888"
 
 WELCOME_ART = """
-    IndieCode — AI-powered terminal assistant
+   IndieCode — AI-powered terminal assistant
    Built by Rhasan@dev (https://github.com/rbkhan007)
    Phi-3 / Phi-4 Custom Model · llama.cpp · 100% Local
 """
@@ -211,25 +211,6 @@ class MessageWidget(Static):
             )
 
 
-class WelcomeScreen(Static):
-    """Centered welcome screen with ASCII logo and hint text."""
-
-    def on_mount(self) -> None:
-        self._render_welcome()
-
-    def _render_welcome(self) -> None:
-        logo = Text(WELCOME_ART, style=Style(color=ACCENT, bold=True))
-        subtitle = Text("  AI-powered terminal assistant\n\n", style=Style(color=GRAY2, italic=True))
-        hints = Text(
-            "  ctrl+p   commands   tab     focus input\n"
-            "  ctrl+c   cancel     /help   commands\n"
-            "  ctrl+d   exit       /clear  clear\n",
-            style=Style(color=TEXT_DIM),
-        )
-        ver = Text(f"  Python {platform.python_version()}  Textual 8  Rich  |  by Rhasan@dev", style=Style(color=GRAY))
-        self.update(Panel(Group(logo, subtitle, hints, ver), border_style=Style(color=ACCENT, dim=True), style=Style(bgcolor=BACKGROUND), padding=(2, 4)))
-
-
 class MainScreen(Screen):
     """Primary conversation screen."""
 
@@ -241,10 +222,68 @@ class MainScreen(Screen):
         Binding("tab", "focus_input", "Focus Input"),
     ]
 
+    CSS = """
+    MainScreen {
+        layout: vertical;
+        background: #0d0d0d;
+    }
+
+    #conversation {
+        height: 1fr;
+        background: #0d0d0d;
+        overflow-y: auto;
+        padding: 1;
+    }
+
+    #welcome {
+        height: auto;
+        margin: 2 4;
+    }
+
+    #bottom-panel {
+        height: auto;
+        background: #111111;
+        border-top: solid #222222;
+    }
+
+    #input-container {
+        border-left: solid #00d7ff;
+    }
+
+    .input-box {
+        background: #0d0d0d;
+        color: #e0e0e0;
+        min-height: 3;
+        max-height: 6;
+        border: none;
+        padding: 1 2;
+    }
+
+    .input-box:focus {
+        border: none;
+    }
+
+    .input-subtext {
+        height: 1;
+        background: #111111;
+        color: #6b7280;
+        padding: 0 2;
+    }
+
+    #status-bar {
+        background: #0a0a0a;
+        color: #9ca3af;
+        height: 1;
+    }
+
+    MessageWidget {
+        margin: 0 0 1 0;
+    }
+    """
+
     def compose(self) -> ComposeResult:
         with Container(id="main-container"):
             yield ScrollableContainer(id="conversation", classes="conversation-panel")
-            yield WelcomeScreen(id="welcome")
             with Container(id="bottom-panel"):
                 with Container(id="input-container"):
                     yield TextArea(id="input", classes="input-box")
@@ -255,6 +294,23 @@ class MainScreen(Screen):
         self.query_one("#input", TextArea).focus()
         self._update_subtext()
         self._update_status()
+        self._show_welcome()
+
+    def _show_welcome(self) -> None:
+        conv = self.query_one("#conversation", ScrollableContainer)
+        logo = Text(WELCOME_ART, style=Style(color=ACCENT, bold=True))
+        subtitle = Text("  AI-powered terminal assistant\n\n", style=Style(color=GRAY2, italic=True))
+        hints = Text(
+            "  ctrl+p   commands   tab     focus input\n"
+            "  ctrl+c   cancel     /help   commands\n"
+            "  ctrl+d   exit       /clear  clear\n",
+            style=Style(color=TEXT_DIM),
+        )
+        ver = Text(f"  Python {platform.python_version()}  Textual 8  Rich  |  by Rhasan@dev", style=Style(color=GRAY))
+        panel = Panel(Group(logo, subtitle, hints, ver), border_style=Style(color=ACCENT, dim=True), style=Style(bgcolor=BACKGROUND), padding=(2, 4))
+        welcome = Static(panel, id="welcome")
+        conv.mount(welcome)
+        conv.scroll_end(animate=False)
 
     def _update_subtext(self) -> None:
         sub = self.query_one("#input-subtext", Static)
@@ -281,8 +337,7 @@ class MainScreen(Screen):
     def action_clear(self) -> None:
         conv = self.query_one("#conversation", ScrollableContainer)
         conv.remove_children()
-        welcome = self.query_one("#welcome", WelcomeScreen)
-        welcome.display = True
+        self._show_welcome()
         self._update_status()
 
     def action_cancel(self) -> None:
@@ -303,9 +358,6 @@ class MainScreen(Screen):
         if not text:
             return
         input_w.clear()
-        welcome = self.query_one("#welcome", WelcomeScreen)
-        if welcome.display:
-            welcome.display = False
         await self._process_input(text)
 
     async def _process_input(self, text: str) -> None:
@@ -414,67 +466,6 @@ class IndieCodeTUI(App):
     CSS = """
     Screen {
         background: #0d0d0d;
-    }
-
-    #main-container {
-        height: 100%;
-        layout: vertical;
-    }
-
-    #conversation {
-        height: 1fr;
-        background: #0d0d0d;
-        overflow-y: auto;
-        padding: 0 1;
-    }
-
-    #conversation MessageWidget {
-        margin: 0 0 1 0;
-    }
-
-    #welcome {
-        dock: top;
-        height: auto;
-        margin: 2 4;
-    }
-
-    #bottom-panel {
-        dock: bottom;
-        height: auto;
-        background: #111111;
-        border-top: solid #222222;
-    }
-
-    #input-container {
-        margin: 0 0 0 0;
-        padding: 0 0 0 0;
-        border-left: solid #00d7ff;
-    }
-
-    .input-box {
-        background: #0d0d0d;
-        color: #e0e0e0;
-        min-height: 3;
-        max-height: 6;
-        border: none;
-        padding: 1 2;
-    }
-
-    .input-box:focus {
-        border: none;
-    }
-
-    .input-subtext {
-        height: 1;
-        background: #111111;
-        color: #6b7280;
-        padding: 0 2;
-    }
-
-    #status-bar {
-        background: #0a0a0a;
-        color: #9ca3af;
-        height: 1;
     }
 
     MessageWidget {
