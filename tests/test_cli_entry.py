@@ -22,7 +22,7 @@ def _run(argv, stdin=None):
 def test_demo_command_runs():
     code, out, _ = _run(["demo"])
     assert code == 0
-    assert "Agentic CLI initialized" in out
+    assert "PHI-3 CUSTOM MODEL" in out or "Agentic CLI" in out
 
 
 def test_no_command_starts_repl_and_exits():

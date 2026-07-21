@@ -1111,18 +1111,95 @@ class CLIBuilder:
 
 
 def demo():
-    """Print a quick capability overview of the agentic CLI."""
+    """Print a comprehensive capability overview of the agentic CLI."""
     cli = AgenticCLI()
-    print("Agentic CLI initialized")
-    print(f"System: {json.dumps(cli._system_info, indent=2)}")
 
-    result = cli.execute_tool("list_files", path=".", pattern="*.py")
-    print(f"\nPython files: {result.output.get('count', 0)}")
+    bar = "=" * 70
+    print(bar)
+    print("  PHI-3 CUSTOM MODEL - AGENTIC CLI")
+    print("  A complete local AI coding assistant")
+    print(bar)
 
-    result = cli.execute_tool("analyze_code", path="cli/__init__.py")
-    print(f"\nCode analysis: {json.dumps(result.output, indent=2)}")
+    # System info
+    print("\n[SYSTEM]")
+    sys = cli._system_info
+    print(f"  OS        : {sys.get('os')} {sys.get('arch')}")
+    print(f"  Python    : {sys.get('python')}")
+    print(f"  CPUs      : {sys.get('cpus')}")
+    print(f"  RAM       : {sys.get('ram_gb', '?')} GB total")
+    if 'ram_available_gb' in sys:
+        print(f"  Available : {sys['ram_available_gb']} GB")
 
-    print(f"\nStats: {json.dumps(cli.get_stats(), indent=2)}")
+    # Backend
+    print("\n[BACKEND]")
+    backend = cli.backend
+    print(f"  Active    : {backend.name}")
+    model = getattr(backend, "model_path", None) or getattr(backend, "model", cli.config.get("model"))
+    print(f"  Model     : {model}")
+
+    # Capabilities
+    print("\n[CAPABILITIES]")
+    caps = [
+        ("RAG Engine", cli._rag_engine is not None, "Retrieval-Augmented Generation with GGUF embeddings"),
+        ("Memory", cli._memory is not None, "Conversation history tracking"),
+        ("Safety Layer", cli._safety is not None, "Content filtering (toxicity, bias, jailbreak)"),
+        ("Extended Thinking", cli._extended_thinker is not None, "Chain-of-thought reasoning"),
+        ("Tool Registry", cli._tool_registry is not None, "Tool management system"),
+    ]
+    for name, ok, desc in caps:
+        status = "ON" if ok else "OFF"
+        print(f"  {name:<20} [{status}]  {desc}")
+
+    # Tools
+    print(f"\n[TOOLS] ({len(cli.tools)} available)")
+    tool_groups = {
+        "File System": ["read_file", "write_file", "list_files", "search_files", "mkdir", "rmdir", "copy_file", "move_file", "delete_file", "file_exists", "get_disk_usage"],
+        "Git": ["git_status", "git_commit", "git_diff", "git_log", "git_branch", "git_checkout", "git_pull", "git_push"],
+        "System": ["run_code", "run_command", "get_env", "set_env", "get_cwd", "set_cwd", "get_os_info", "get_process_list"],
+        "Code": ["analyze_code", "find_path", "chat"],
+    }
+    for group, tools in tool_groups.items():
+        available = [t for t in tools if t in cli.tools]
+        print(f"  {group:<15}: {', '.join(available)}")
+
+    # Code execution languages
+    print("\n[CODE EXECUTION]")
+    print("  Languages  : Python, JavaScript, TypeScript, Bash, Go, Rust")
+    print("  Run code   : run-code --lang python --code 'print(42)'")
+
+    # Example commands
+    print("\n[EXAMPLES]")
+    examples = [
+        ('list *.py', "List Python files"),
+        ('read cli/__init__.py', "Read a file"),
+        ('search "def main"', "Search code"),
+        ('git-status', "Show git status"),
+        ('os', "Show OS info"),
+        ('analyze cli/__init__.py', "Analyze code metrics"),
+        ('run-code "print(2+2)"', "Execute Python code"),
+        ('What is RAG?', "Chat with the AI"),
+    ]
+    for cmd, desc in examples:
+        print(f"  python -m cli {cmd:<30} # {desc}")
+
+    # Training
+    print("\n[TRAINING]")
+    print("  LoRA      : QLoRA with gradient checkpointing")
+    print("  Presets   : phi4_mini, qwen3_embedding, colab_free_tier, local_gpu, high_end_gpu")
+    print("  Metrics   : Real-time loss, LR, tokens/s tracking")
+
+    # Stats
+    print("\n[SESSION]")
+    stats = cli.get_stats()
+    print(f"  Session ID : {stats.get('session_id')}")
+    print(f"  Messages   : {stats.get('messages', 0)}")
+    print(f"  Tool Calls : {stats.get('tool_calls', 0)}")
+
+    print(f"\n{bar}")
+    print("  Copyright (c) 2024-2026 Rhasan@dev")
+    print("  https://github.com/rbkhan007/Photato-Phi-3-Custom-Model")
+    print("  Licensed under MIT License")
+    print(bar)
 
 
 def main(argv=None):

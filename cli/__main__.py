@@ -272,27 +272,44 @@ def _banner(cli: AgenticCLI, tui_mode: bool = False) -> None:
         budget = f"{cpu:.0f}% CPU / ~{recommended_threads(cpu)} threads"
     except Exception:
         budget = f"{cpu:.0f}% CPU"
-    bar = "=" * 60
+
+    # Check capabilities
+    caps = []
+    if cli._rag_engine:
+        caps.append("RAG")
+    if cli._memory:
+        caps.append("Memory")
+    if cli._safety:
+        caps.append("Safety")
+    if cli._extended_thinker:
+        caps.append("Thinking")
+    caps_str = ", ".join(caps) if caps else "None"
+
+    bar = "=" * 70
     mode = "TUI" if tui_mode else "REPL"
     print(bar)
-    print(f"  Phi-3 Custom Model - Agentic CLI  ({mode} mode)")
+    print(f"  PHI-3 CUSTOM MODEL - AGENTIC CLI  ({mode} mode)")
     print(bar)
-    print(f"  backend : {backend.name}")
-    print(f"  model   : {model}")
-    print(f"  budget  : {budget}")
-    print(f"  cwd     : {cli.working_dir}")
-    print("-" * 60)
+    print(f"  backend   : {backend.name}")
+    print(f"  model     : {model}")
+    print(f"  budget    : {budget}")
+    print(f"  capabilities : {caps_str}")
+    print(f"  tools     : {len(cli.tools)} available")
+    print(f"  cwd       : {cli.working_dir}")
+    print("-" * 70)
     print("  Type anything - tool commands or chat naturally.")
-    print("  Tools: list read write search run-code exec mkdir rmdir")
-    print("        copy move delete exists disk analyze")
-    print("  Git:   git-status git-commit git-diff git-log git-branch")
-    print("        git-checkout git-pull git-push")
-    print("  System: env set-env cwd cd os processes")
-    print("  Slash: /help /status /system /clear /new /model /backend /cpu /json /exit")
-    print("-" * 60)
+    print()
+    print("  FILE:     list read write search mkdir rmdir copy move delete exists disk")
+    print("  GIT:      git-status git-commit git-diff git-log git-branch git-checkout")
+    print("  SYSTEM:   run-code exec env set-env cwd cd os processes")
+    print("  CODE:     analyze  |  CHAT:    just type a message")
+    print("  SLASH:    /help /status /system /clear /new /model /backend /cpu /json /exit")
+    print()
+    print("  Run 'python -m cli demo' to see full capabilities")
+    print("-" * 70)
     print("  Copyright (c) 2024-2026 Rhasan@dev (https://github.com/rbkhan007)")
     print("  Licensed under MIT License. See LICENSE file for details.")
-    print("-" * 60)
+    print("-" * 70)
 
 
 def _status(cli: AgenticCLI) -> None:
