@@ -115,6 +115,26 @@ graph TB
 
 ---
 
+## Creator's Note
+
+I'm **Rakibul Hasan (Rhasan@dev)**. I don't have a BSc degree — my admission was canceled due to poor CG. But in this AI era, you can achieve anything with the right guidance and 2–4 months of focused work.
+
+I started as an indie dev with Godot 4.4.2 and GDScript. Then I moved to React, Next.js, TailwindCSS, TypeScript — building small projects with AI assistance. That led me to ask: *What if I could run a capable AI model on my own machine — with zero cost — and truly understand how it works?*
+
+I studied the big players: Claude, Grok, DeepSeek, Llama, and most recently Moonshot's Kimi K2. Their outputs are incredible — but every API call costs money. As a developer with no budget for subscriptions, I realized my hardware was the only resource I could fully control.
+
+So I asked a different question: *Instead of paying for AI, why not build something that wrings every drop of performance out of the hardware I already own?*
+
+This project is the answer. It's built on the belief that **Bangladesh doesn't need expensive GPUs or cloud credits to participate in the AI revolution** — we need software that respects the hardware we have, tools that work offline, and knowledge that stays open.
+
+If a college dropout from Bangladesh can fine-tune a model, build an agentic CLI with 30 tools, and ship a complete local AI platform — imagine what a generation of motivated developers can do with the same tools.
+
+This isn't just a project. It's a proof that **with CPU-only hardware, zero budget, and stubborn curiosity, you can build anything.**
+
+— *Rakibul Hasan (Rhasan@dev)*
+
+---
+
 ## System Architecture
 
 ```mermaid
