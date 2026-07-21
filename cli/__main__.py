@@ -244,7 +244,7 @@ def _repl(cli: AgenticCLI, as_json: bool, beginner: bool = False) -> int:
         commands = _command_names(parser)
         while True:
             try:
-                line = input("you> ").strip()
+                line = input("\033[92myou> \033[0m").strip()
             except (EOFError, KeyboardInterrupt):
                 print()
                 cli.save_session()
@@ -289,11 +289,19 @@ def _chat_turn(cli: AgenticCLI, line: str, json_mode: bool) -> None:
     if json_mode:
         _print(cli.chat(line), json_mode)
         return
-    print("assistant> ", end="", flush=True)
+    
+    # Beautiful user prompt
+    print(f"\n\033[92m[you]\033[0m {line}")
+    print()
+    print("\033[94m[assistant]\033[0m ", end="", flush=True)
+    
     try:
         for chunk in cli.chat_stream(line):
             print(chunk, end="", flush=True)
         print()
+        print()
+        
+        # Show metrics subtly
         u = getattr(cli, "last_usage", None)
         if u:
             bits = []
@@ -304,9 +312,9 @@ def _chat_turn(cli: AgenticCLI, line: str, json_mode: bool) -> None:
             if u.get("elapsed_s") is not None:
                 bits.append(f"{u['elapsed_s']}s")
             if bits:
-                print("  -> " + " - ".join(bits))
+                print(f"  \033[90m-> {' - '.join(bits)}\033[0m")
     except Exception as e:  # pragma: no cover - defensive
-        print(f"\n[error: {e}]")
+        print(f"\n\033[91m[error: {e}]\033[0m")
 
 
 def _banner(cli: AgenticCLI, tui_mode: bool = False, beginner: bool = False) -> None:

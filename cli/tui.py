@@ -205,42 +205,59 @@ class TUI:
             self._app.exit()
         elif cmd == "help":
             self._add_system_message(
-                "AVAILABLE COMMANDS\n"
-                "=" * 50 + "\n\n"
-                "CHAT:\n"
+                "\033[96m============================================================\033[0m\n"
+                "\033[96m  AVAILABLE COMMANDS\033[0m\n"
+                "\033[96m============================================================\033[0m\n\n"
+                "\033[93mCHAT:\033[0m\n"
                 "  Just type any message to chat with the AI\n"
                 "  Example: What is Python?\n\n"
-                "FILES:\n"
-                "  list [path]          Show files in a folder\n"
-                "  read <file>          Read a file's contents\n"
-                "  write <file>         Create or edit a file\n"
-                "  search <query>       Find text in files\n"
-                "  analyze <file>       Analyze code quality\n\n"
-                "CODE:\n"
-                "  run-code <code>      Run Python/JS/other code\n"
-                "  exec <command>       Run a system command\n\n"
-                "SYSTEM:\n"
-                "  os                   Show computer info\n"
-                "  processes            Show running programs\n"
-                "  cwd                  Show current folder\n"
-                "  disk [path]          Show disk space\n\n"
-                "SESSION:\n"
-                "  /clear               Clear chat history\n"
-                "  /new                 Start fresh session\n"
-                "  /export              Save chat as file\n"
-                "  /search <query>      Search old conversations\n\n"
-                "SETTINGS:\n"
-                "  /status              Show current settings\n"
-                "  /model               Change AI model\n"
-                "  /backend             Change backend\n"
-                "  /help                Show this help\n"
-                "  /exit                Quit the program\n\n"
-                "=" * 50 + "\n"
-                "TIP: Just type naturally - AI understands!"
+                "\033[93mFILES:\033[0m\n"
+                "  \033[96mlist\033[0m [path]          Show files in a folder\n"
+                "  \033[96mread\033[0m <file>          Read a file's contents\n"
+                "  \033[96mwrite\033[0m <file>         Create or edit a file\n"
+                "  \033[96msearch\033[0m <query>       Find text in files\n"
+                "  \033[96manalyze\033[0m <file>       Analyze code quality\n\n"
+                "\033[93mCODE:\033[0m\n"
+                "  \033[96mrun-code\033[0m <code>      Run Python/JS/other code\n"
+                "  \033[96mexec\033[0m <command>       Run a system command\n\n"
+                "\033[93mSYSTEM:\033[0m\n"
+                "  \033[96mos\033[0m                   Show computer info\n"
+                "  \033[96mprocesses\033[0m            Show running programs\n"
+                "  \033[96mcwd\033[0m                  Show current folder\n"
+                "  \033[96mdisk\033[0m [path]          Show disk space\n\n"
+                "\033[93mBEGINNER-FRIENDLY ALIASES:\033[0m\n"
+                "  \033[96mfiles\033[0m, dir, ls       = list\n"
+                "  \033[96mview\033[0m, cat, type      = read\n"
+                "  \033[96mcreate\033[0m, edit, make   = write\n"
+                "  \033[96mfind\033[0m, grep, look     = search\n"
+                "  \033[96mcode\033[0m, run            = run-code\n"
+                "  \033[96mcomputer\033[0m, system     = os\n\n"
+                "\033[93mSESSION:\033[0m\n"
+                "  \033[96m/clear\033[0m               Clear chat history\n"
+                "  \033[96m/new\033[0m                 Start fresh session\n"
+                "  \033[96m/export\033[0m              Save chat as file\n"
+                "  \033[96m/exit\033[0m                Quit the program\n\n"
+                "\033[96m============================================================\033[0m\n"
+                "\033[93mTIP: Just type naturally - AI understands!\033[0m"
             )
         elif cmd == "status":
             import json
-            self._add_system_message(json.dumps(self._get_status_dict(), indent=2))
+            status = self._get_status_dict()
+            formatted = (
+                "\033[96m============================================================\033[0m\n"
+                "\033[96m  CURRENT STATUS\033[0m\n"
+                "\033[96m============================================================\033[0m\n\n"
+                f"\033[93mBackend:\033[0m {status['backend']}\n"
+                f"\033[93mModel:\033[0m {status['model'].split('/')[-1] if '/' in str(status['model']) else status['model']}\n"
+                f"\033[93mCPU Budget:\033[0m {status['cpu_percent']:.0f}%\n"
+                f"\033[93mThread Budget:\033[0m {status['thread_budget']}\n"
+                f"\033[93mWorking Directory:\033[0m {status['working_dir']}\n"
+                f"\033[93mSession ID:\033[0m {status['session_id'][:8]}...\n"
+                f"\033[93mMessages:\033[0m {status['messages']}\n"
+                f"\033[93mTool Calls:\033[0m {status['tool_calls']}\n\n"
+                "\033[96m============================================================\033[0m"
+            )
+            self._add_system_message(formatted)
         elif cmd == "system":
             import json
             self._add_system_message(json.dumps(self.cli._system_info, indent=2, default=str))
@@ -348,25 +365,31 @@ class TUI:
         self._refresh_history()
 
     def _handle_chat(self, text: str):
-        """Handle chat messages with streaming."""
+        """Handle chat messages with streaming and beautiful formatting."""
         self._add_user_message(text)
         self._refresh_history()
 
-        # Stream response
+        # Stream response with typing indicator
         self._add_assistant_prefix()
         chunks = []
+        
+        # Show thinking indicator
+        self._update_streaming_response("\033[90mThinking...\033[0m")
+        
         try:
             for chunk in self.cli.chat_stream(text):
                 chunks.append(chunk)
                 self._streaming_active = True
-                self._update_streaming_response("".join(chunks))
+                # Format response with proper line breaks
+                response = "".join(chunks)
+                self._update_streaming_response(response)
         except Exception as e:
-            self._update_streaming_response(f"[error: {e}]")
+            self._update_streaming_response(f"\033[91mError: {e}\033[0m")
 
         # Finalize
         self._finalize_assistant_response()
 
-        # Show metrics
+        # Show metrics in a subtle way
         u = getattr(self.cli, "last_usage", None)
         if u:
             bits = []
@@ -377,7 +400,7 @@ class TUI:
             if u.get("elapsed_s") is not None:
                 bits.append(f"{u['elapsed_s']}s")
             if bits:
-                self._add_system_message("  -> " + " - ".join(bits))
+                self._add_system_message(f"\033[90m  -> {' - '.join(bits)}\033[0m")
                 self._refresh_history()
 
     def _get_status_dict(self):
@@ -428,28 +451,57 @@ class TUI:
         self.conversation_history.append({"role": "system", "content": text})
 
     def _refresh_history(self):
-        """Rebuild the conversation history display."""
+        """Rebuild the conversation history display with beautiful formatting."""
         lines = []
+        
+        # Add welcome message if empty
+        if not self.conversation_history:
+            lines.append(self._get_welcome_message())
+        
         for entry in self.conversation_history:
             role = entry["role"]
             content = entry["content"]
+            
             if role == "user":
-                lines.append(f"[you]> {content}")
+                # User messages with green prompt
+                lines.append(f"\n\033[92m[you]\033[0m {content}")
             elif role == "assistant":
                 if content:
-                    lines.append(f"[assistant]> {content}")
+                    # Assistant messages with blue prompt
+                    lines.append(f"\n\033[94m[assistant]\033[0m {content}")
                 else:
-                    lines.append("[assistant]> ")
+                    lines.append("\n\033[94m[assistant]\033[0m ")
             elif role == "system":
-                lines.append(content)
-
+                # System messages in gray
+                lines.append(f"\n\033[90m{content}\033[0m")
+        
         # Join and set to history buffer
         text = "\n".join(lines)
         self._history_buffer.text = text
-
+        
         # Move cursor to end of history
         if text:
             self._history_buffer.cursor_position = len(text)
+
+    def _get_welcome_message(self) -> str:
+        """Get a beautiful welcome message for new users."""
+        return """\033[96m============================================================
+  Welcome to PHI-3 AI ASSISTANT!
+============================================================\033[0m
+
+\033[93mGetting Started:\033[0m
+  1. Just type a question to chat with AI
+     Example: \033[90mWhat is machine learning?\033[0m
+
+  2. Use commands to work with files and code:
+     \033[96mlist\033[0m - see files  |  \033[96mread <file>\033[0m - view file
+     \033[96mwrite <file>\033[0m - create/edit  |  \033[96mrun-code\033[0m - execute code
+
+  3. Type \033[93m/help\033[0m to see all commands
+  4. Type \033[93m/exit\033[0m to quit
+
+\033[90mTip: Just type naturally - AI understands!\033[0m
+============================================================"""
 
     def run(self):
         """Run the TUI application."""
