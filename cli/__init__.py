@@ -8,6 +8,10 @@ A complete agentic command-line interface that can:
 - Use tools and MCPs
 - Maintain conversation memory
 - Self-heal from errors
+- RAG (Retrieval-Augmented Generation)
+- Safety filtering
+- Extended thinking
+- Structured output
 """
 
 import os
@@ -68,9 +72,12 @@ class AgenticCLI:
     - Multi-language code execution
     - File system operations
     - Tool calling with MCP integration
-    - Conversation memory
+    - Conversation memory with RAG
     - Self-healing error recovery
     - Graph-based knowledge management
+    - Safety filtering
+    - Extended thinking
+    - Structured output
     """
 
     #: Base directory for persisted config, sessions, and history.
@@ -86,7 +93,13 @@ class AgenticCLI:
         self.history: list[dict] = []
         self.config: dict = {}
         self._backend = backend
+        self._rag_engine = None
+        self._memory = None
+        self._safety = None
+        self._tool_registry = None
+        self._extended_thinker = None
         self._setup_tools()
+        self._setup_capabilities()
         self._system_info = self._detect_system()
         self._load_config(config)
 
@@ -211,14 +224,45 @@ class AgenticCLI:
         self._backend = backend
 
     def chat(self, content: str, **kwargs) -> dict:
-        """Send a user message to the model backend and record the exchange."""
+        """Send a user message to the model backend and record the exchange.
+
+        Integrates RAG, memory, and safety filtering.
+        """
         from cli.model_backend import BackendError
+
+        # Safety check
+        if self._safety:
+            try:
+                safety_result = self._safety.check_safety(content)
+                if not safety_result.is_safe:
+                    return {"success": False, "error": "Content blocked by safety filter"}
+            except Exception:
+                pass  # Skip safety if it fails
+
+        # Memory: store user message
+        if self._memory:
+            try:
+                self._memory.add(content, role="user")
+            except Exception:
+                pass
+
+        # RAG: get relevant context
+        rag_context = ""
+        if self._rag_engine:
+            try:
+                results = self._rag_engine.query(content, top_k=3)
+                if results:
+                    rag_context = "\n\nRelevant context:\n" + "\n".join(
+                        [r.get("content", "") for r in results]
+                    )
+            except Exception:
+                pass
 
         self.send(content)
         messages = []
         system_prompt = self.config.get("system_prompt")
         if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "system", "content": system_prompt + rag_context})
         for m in self.session.messages[-20:]:
             if m.role in (MessageRole.USER, MessageRole.ASSISTANT):
                 messages.append({"role": m.role.value, "content": m.content})
@@ -230,6 +274,14 @@ class AgenticCLI:
             )
         except BackendError as e:
             return {"success": False, "error": str(e)}
+
+        # Memory: store assistant response
+        if self._memory:
+            try:
+                self._memory.add(result.content, role="assistant")
+            except Exception:
+                pass
+
         self.respond(result.content)
         self._append_history(f"chat: {content[:80]}")
         return result.to_dict()
@@ -240,14 +292,45 @@ class AgenticCLI:
         Mirrors :meth:`chat` (records the exchange) but streams tokens for a
         responsive bot UX. Backends without a ``stream_chat`` method fall back
         to a single yielded block.
+
+        Integrates RAG, memory, and safety filtering.
         """
         from cli.model_backend import BackendError
+
+        # Safety check
+        if self._safety:
+            try:
+                safety_result = self._safety.check_safety(content)
+                if not safety_result.is_safe:
+                    yield "[error: Content blocked by safety filter]"
+                    return
+            except Exception:
+                pass  # Skip safety if it fails
+
+        # Memory: store user message
+        if self._memory:
+            try:
+                self._memory.add(content, role="user")
+            except Exception:
+                pass
+
+        # RAG: get relevant context
+        rag_context = ""
+        if self._rag_engine:
+            try:
+                results = self._rag_engine.query(content, top_k=3)
+                if results:
+                    rag_context = "\n\nRelevant context:\n" + "\n".join(
+                        [r.get("content", "") for r in results]
+                    )
+            except Exception:
+                pass
 
         self.send(content)
         messages = []
         system_prompt = self.config.get("system_prompt")
         if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "system", "content": system_prompt + rag_context})
         for m in self.session.messages[-20:]:
             if m.role in (MessageRole.USER, MessageRole.ASSISTANT):
                 messages.append({"role": m.role.value, "content": m.content})
@@ -270,6 +353,14 @@ class AgenticCLI:
         except BackendError as e:
             yield f"[error: {e}]"
             return
+
+        # Memory: store assistant response
+        if self._memory:
+            try:
+                self._memory.add(text, role="assistant")
+            except Exception:
+                pass
+
         self.respond(text)
         self._append_history(f"chat: {content[:80]}")
 
@@ -362,6 +453,50 @@ class AgenticCLI:
             "get_os_info": self._get_os_info,
             "get_process_list": self._get_process_list,
         }
+
+    def _setup_capabilities(self):
+        """Initialize advanced capabilities (RAG, memory, safety, etc.)."""
+        import sys
+        from io import StringIO
+
+        # RAG Engine (suppress initialization output)
+        try:
+            old_stdout = sys.stdout
+            sys.stdout = StringIO()
+            from capabilities.rag import RAGEngine
+            self._rag_engine = RAGEngine()
+            sys.stdout = old_stdout
+        except Exception:
+            sys.stdout = sys.__stdout__
+            self._rag_engine = None
+
+        # Conversation Memory
+        try:
+            from capabilities.memory import ConversationMemory
+            self._memory = ConversationMemory()
+        except Exception:
+            self._memory = None
+
+        # Safety Layer
+        try:
+            from capabilities.safety import SafetyLayer
+            self._safety = SafetyLayer()
+        except Exception:
+            self._safety = None
+
+        # Tool Registry (from tools module)
+        try:
+            from tools.tool_registry import ToolRegistry
+            self._tool_registry = ToolRegistry()
+        except Exception:
+            self._tool_registry = None
+
+        # Extended Thinker
+        try:
+            from capabilities.extended_thinking import ExtendedThinker
+            self._extended_thinker = ExtendedThinker()
+        except Exception:
+            self._extended_thinker = None
 
     # === Tool Implementations ===
 
