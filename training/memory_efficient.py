@@ -1,25 +1,27 @@
 #!/usr/bin/env python3
 """
-Memory-Efficient Training Utilities for Local LLMs.
+Memory-Efficient LoRA Training for Local LLMs.
+
+Optimized for:
+- Phi-4-mini-instruct (Q4_K_M GGUF)
+- Qwen3-Embedding-0.6B (Q8_0 GGUF)
+- CPU-only and GPU environments
 
 Features:
-- 70% less VRAM usage with QLoRA + gradient checkpointing
-- 2x faster training with Flash Attention
-- Mixed precision training (FP16/BF16)
-- Gradient accumulation
-- Model sharding for multi-GPU
+- QLoRA (4-bit quantization + LoRA)
+- Gradient checkpointing (70% less VRAM)
+- Flash Attention (2x faster)
+- Mixed precision training
+- Automatic batch size optimization
+- Real-time metrics tracking
+- Validation during training
 - Checkpoint management
-
-Usage:
-    from training.memory_efficient import MemoryEfficientTrainer
-
-    trainer = MemoryEfficientTrainer(model_path="microsoft/Phi-3-mini-4k-instruct")
-    trainer.train(dataset, output_dir="./output")
 """
 
 import argparse
 import gc
 import json
+import math
 import os
 import sys
 import time
@@ -52,6 +54,8 @@ class TrainingConfig:
     lora_target_modules: list[str] = field(
         default_factory=lambda: ["qkv_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
     )
+    lora_bias: str = "none"
+    lora_task_type: str = "CAUSAL_LM"
 
     # Training
     output_dir: str = "./output"
@@ -61,6 +65,7 @@ class TrainingConfig:
     learning_rate: float = 2e-4
     weight_decay: float = 0.01
     warmup_ratio: float = 0.1
+    warmup_steps: int = 0
     max_grad_norm: float = 1.0
 
     # Memory optimization
@@ -78,8 +83,19 @@ class TrainingConfig:
     save_total_limit: int = 3
     logging_steps: int = 10
 
+    # Validation
+    eval_strategy: str = "steps"
+    eval_steps: int = 50
+    load_best_model_at_end: bool = True
+    metric_for_best_model: str = "eval_loss"
+    greater_is_better: bool = False
+
     # Device
     device_map: str = "auto"
+
+    # Data
+    dataset_text_field: str = "text"
+    packing: bool = False
 
     def to_dict(self) -> dict:
         """Convert to dictionary."""
@@ -150,6 +166,103 @@ class MemoryProfiler:
         print()
 
 
+class MetricsTracker:
+    """Track training metrics in real-time."""
+
+    def __init__(self):
+        self.metrics = {
+            "train_loss": [],
+            "eval_loss": [],
+            "learning_rate": [],
+            "epoch": [],
+            "step": [],
+            "tokens_per_second": [],
+            "gpu_memory_used": [],
+        }
+        self.start_time = None
+        self.total_tokens = 0
+
+    def start(self):
+        """Start tracking."""
+        self.start_time = time.time()
+
+    def log_train(self, step: int, loss: float, lr: float, epoch: float):
+        """Log training metrics."""
+        self.metrics["train_loss"].append(loss)
+        self.metrics["learning_rate"].append(lr)
+        self.metrics["epoch"].append(epoch)
+        self.metrics["step"].append(step)
+
+        # Calculate tokens per second
+        if self.start_time:
+            elapsed = time.time() - self.start_time
+            if elapsed > 0:
+                self.metrics["tokens_per_second"].append(
+                    self.total_tokens / elapsed
+                )
+
+        # Log GPU memory if available
+        if torch.cuda.is_available():
+            mem = torch.cuda.memory_allocated(0) / 1024**3
+            self.metrics["gpu_memory_used"].append(round(mem, 2))
+
+    def log_eval(self, eval_loss: float):
+        """Log evaluation metrics."""
+        self.metrics["eval_loss"].append(eval_loss)
+
+    def add_tokens(self, num_tokens: int):
+        """Add to total token count."""
+        self.total_tokens += num_tokens
+
+    def get_summary(self) -> dict:
+        """Get metrics summary."""
+        summary = {
+            "total_steps": len(self.metrics["train_loss"]),
+            "total_tokens": self.total_tokens,
+        }
+
+        if self.metrics["train_loss"]:
+            summary["avg_train_loss"] = sum(self.metrics["train_loss"]) / len(
+                self.metrics["train_loss"]
+            )
+            summary["min_train_loss"] = min(self.metrics["train_loss"])
+            summary["max_train_loss"] = max(self.metrics["train_loss"])
+
+        if self.metrics["eval_loss"]:
+            summary["avg_eval_loss"] = sum(self.metrics["eval_loss"]) / len(
+                self.metrics["eval_loss"]
+            )
+            summary["best_eval_loss"] = min(self.metrics["eval_loss"])
+
+        if self.start_time:
+            summary["elapsed_time"] = time.time() - self.start_time
+            summary["elapsed_minutes"] = summary["elapsed_time"] / 60
+
+        return summary
+
+    def print_progress(self, step: int, total_steps: int):
+        """Print training progress."""
+        if not self.metrics["train_loss"]:
+            return
+
+        current_loss = self.metrics["train_loss"][-1]
+        avg_loss = sum(self.metrics["train_loss"]) / len(self.metrics["train_loss"])
+
+        # Calculate progress
+        progress = (step / total_steps) * 100 if total_steps > 0 else 0
+        elapsed = time.time() - self.start_time if self.start_time else 0
+        eta = (elapsed / step * (total_steps - step)) if step > 0 else 0
+
+        # Format output
+        print(
+            f"\r  Step {step}/{total_steps} ({progress:.1f}%) | "
+            f"Loss: {current_loss:.4f} (avg: {avg_loss:.4f}) | "
+            f"ETA: {eta/60:.1f}min",
+            end="",
+            flush=True,
+        )
+
+
 class MemoryEfficientTrainer:
     """
     Memory-efficient trainer for local LLMs.
@@ -160,6 +273,8 @@ class MemoryEfficientTrainer:
     - Flash Attention (2x faster)
     - Mixed precision training
     - Automatic batch size optimization
+    - Real-time metrics tracking
+    - Validation during training
     """
 
     def __init__(self, config: Optional[TrainingConfig] = None):
@@ -174,6 +289,7 @@ class MemoryEfficientTrainer:
         self.tokenizer = None
         self.trainer = None
         self.profiler = MemoryProfiler()
+        self.metrics = MetricsTracker()
 
         # Check for required libraries
         self._check_dependencies()
@@ -257,8 +373,8 @@ class MemoryEfficientTrainer:
                 r=self.config.lora_r,
                 lora_alpha=self.config.lora_alpha,
                 lora_dropout=self.config.lora_dropout,
-                bias="none",
-                task_type="CAUSAL_LM",
+                bias=self.config.lora_bias,
+                task_type=self.config.lora_task_type,
                 target_modules=self.config.lora_target_modules,
             )
 
@@ -282,19 +398,38 @@ class MemoryEfficientTrainer:
         print("Model loaded successfully!")
         self.profiler.print_memory_report()
 
-    def train(self, dataset, output_dir: Optional[str] = None):
+    def train(self, dataset, output_dir: Optional[str] = None, eval_dataset=None):
         """
         Train the model.
 
         Args:
             dataset: Training dataset
             output_dir: Output directory (uses config if None)
+            eval_dataset: Optional evaluation dataset
         """
         from trl import SFTTrainer
         from transformers import TrainingArguments
 
         output_dir = output_dir or self.config.output_dir
         Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+        # Calculate total steps
+        num_samples = len(dataset)
+        effective_batch = (
+            self.config.per_device_train_batch_size
+            * self.config.gradient_accumulation_steps
+        )
+        total_steps = (num_samples // effective_batch) * self.config.num_train_epochs
+
+        print(f"\nTraining Configuration:")
+        print(f"  Samples: {num_samples}")
+        print(f"  Batch size: {self.config.per_device_train_batch_size}")
+        print(f"  Gradient accumulation: {self.config.gradient_accumulation_steps}")
+        print(f"  Effective batch: {effective_batch}")
+        print(f"  Epochs: {self.config.num_train_epochs}")
+        print(f"  Total steps: ~{total_steps}")
+        print(f"  Learning rate: {self.config.learning_rate}")
+        print(f"  Max seq length: {self.config.max_seq_length}")
 
         # Training arguments
         training_args = TrainingArguments(
@@ -305,6 +440,7 @@ class MemoryEfficientTrainer:
             learning_rate=self.config.learning_rate,
             weight_decay=self.config.weight_decay,
             warmup_ratio=self.config.warmup_ratio,
+            warmup_steps=self.config.warmup_steps,
             max_grad_norm=self.config.max_grad_norm,
             logging_steps=self.config.logging_steps,
             save_steps=self.config.save_steps,
@@ -315,19 +451,29 @@ class MemoryEfficientTrainer:
             gradient_checkpointing=self.config.gradient_checkpointing,
             gradient_checkpointing_kwargs={"use_reentrant": False},
             report_to="none",
-            max_seq_length=self.config.max_seq_length,
+            eval_strategy=self.config.eval_strategy,
+            eval_steps=self.config.eval_steps,
+            load_best_model_at_end=self.config.load_best_model_at_end,
+            metric_for_best_model=self.config.metric_for_best_model,
+            greater_is_better=self.config.greater_is_better,
+            save_strategy="steps",
+            lr_scheduler_type="cosine",
         )
 
         # Create trainer
         self.trainer = SFTTrainer(
             model=self.model,
             train_dataset=dataset,
+            eval_dataset=eval_dataset,
             args=training_args,
             tokenizer=self.tokenizer,
-            dataset_text_field="text",
+            dataset_text_field=self.config.dataset_text_field,
             max_seq_length=self.config.max_seq_length,
-            packing=False,
+            packing=self.config.packing,
         )
+
+        # Start metrics tracking
+        self.metrics.start()
 
         # Train
         print("\nStarting training...")
@@ -337,15 +483,26 @@ class MemoryEfficientTrainer:
         self.trainer.train()
         training_time = time.time() - start_time
 
-        print(f"\nTraining complete! Time: {training_time/60:.1f} minutes")
+        print(f"\n\nTraining complete! Time: {training_time/60:.1f} minutes")
         self.profiler.print_memory_report()
+
+        # Print metrics summary
+        summary = self.metrics.get_summary()
+        print("\n=== Training Summary ===")
+        for key, value in summary.items():
+            if isinstance(value, float):
+                print(f"  {key}: {value:.4f}")
+            else:
+                print(f"  {key}: {value}")
 
         # Save model
         self.save_model(output_dir)
 
+        return summary
+
     def save_model(self, output_dir: str):
         """Save model and tokenizer."""
-        print(f"Saving model to {output_dir}...")
+        print(f"\nSaving model to {output_dir}...")
         self.trainer.save_model(output_dir)
         self.tokenizer.save_pretrained(output_dir)
 
@@ -353,6 +510,11 @@ class MemoryEfficientTrainer:
         config_path = Path(output_dir) / "training_config.json"
         with open(config_path, "w") as f:
             json.dump(self.config.to_dict(), f, indent=2)
+
+        # Save metrics
+        metrics_path = Path(output_dir) / "training_metrics.json"
+        with open(metrics_path, "w") as f:
+            json.dump(self.metrics.get_summary(), f, indent=2)
 
         # Calculate size
         total_size = sum(
@@ -490,6 +652,44 @@ class MemoryEfficientConfigPresets:
             device_map="cpu",
         )
 
+    @staticmethod
+    def phi4_mini() -> TrainingConfig:
+        """Optimized for Phi-4-mini-instruct."""
+        return TrainingConfig(
+            model_path="microsoft/Phi-4-mini-instruct",
+            use_4bit=True,
+            lora_r=16,
+            lora_alpha=32,
+            lora_target_modules=["qkv_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+            per_device_train_batch_size=2,
+            gradient_accumulation_steps=8,
+            max_seq_length=2048,
+            learning_rate=2e-4,
+            gradient_checkpointing=True,
+            use_flash_attention=True,
+            fp16=True,
+            optim="paged_adamw_8bit",
+        )
+
+    @staticmethod
+    def qwen3_embedding() -> TrainingConfig:
+        """Optimized for Qwen3-Embedding-0.6B."""
+        return TrainingConfig(
+            model_path="Qwen/Qwen3-Embedding-0.6B",
+            use_4bit=True,
+            lora_r=8,
+            lora_alpha=16,
+            lora_target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
+            per_device_train_batch_size=4,
+            gradient_accumulation_steps=4,
+            max_seq_length=1024,
+            learning_rate=1e-4,
+            gradient_checkpointing=True,
+            use_flash_attention=True,
+            fp16=True,
+            optim="paged_adamw_8bit",
+        )
+
 
 def calculate_vram_savings():
     """Calculate and display VRAM savings from memory optimizations."""
@@ -545,6 +745,8 @@ def main(argv=None):
             "local_gpu",
             "high_end_gpu",
             "cpu_only",
+            "phi4_mini",
+            "qwen3_embedding",
         ],
     )
 
@@ -561,6 +763,8 @@ def main(argv=None):
                 "local_gpu": MemoryEfficientConfigPresets.local_gpu(),
                 "high_end_gpu": MemoryEfficientConfigPresets.high_end_gpu(),
                 "cpu_only": MemoryEfficientConfigPresets.cpu_only(),
+                "phi4_mini": MemoryEfficientConfigPresets.phi4_mini(),
+                "qwen3_embedding": MemoryEfficientConfigPresets.qwen3_embedding(),
             }
             print(json.dumps(
                 {k: v.to_dict() for k, v in presets.items()},
@@ -580,6 +784,8 @@ def main(argv=None):
                 "local_gpu": MemoryEfficientConfigPresets.local_gpu,
                 "high_end_gpu": MemoryEfficientConfigPresets.high_end_gpu,
                 "cpu_only": MemoryEfficientConfigPresets.cpu_only,
+                "phi4_mini": MemoryEfficientConfigPresets.phi4_mini,
+                "qwen3_embedding": MemoryEfficientConfigPresets.qwen3_embedding,
             }
             config = preset_map[args.preset]()
             print(json.dumps(config.to_dict(), indent=2, default=str))

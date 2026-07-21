@@ -87,6 +87,30 @@ def _dispatch(cli: AgenticCLI, args: argparse.Namespace) -> int:
         call = cli.execute_tool("git_status")
     elif cmd == "git-commit":
         call = cli.execute_tool("git_commit", message=args.message)
+    elif cmd == "git-diff":
+        call = cli.execute_tool("git_diff", file=getattr(args, 'file', None))
+    elif cmd == "git-log":
+        call = cli.execute_tool("git_log", count=getattr(args, 'count', 10))
+    elif cmd == "git-branch":
+        call = cli.execute_tool("git_branch")
+    elif cmd == "git-checkout":
+        call = cli.execute_tool("git_checkout", branch=args.branch)
+    elif cmd == "git-pull":
+        call = cli.execute_tool("git_pull")
+    elif cmd == "git-push":
+        call = cli.execute_tool("git_push")
+    elif cmd == "env":
+        call = cli.execute_tool("get_env", var_name=getattr(args, 'name', None))
+    elif cmd == "set-env":
+        call = cli.execute_tool("set_env", var_name=args.name, value=args.value)
+    elif cmd == "cwd":
+        call = cli.execute_tool("get_cwd")
+    elif cmd == "cd":
+        call = cli.execute_tool("set_cwd", path=args.path)
+    elif cmd == "os":
+        call = cli.execute_tool("get_os_info")
+    elif cmd == "processes":
+        call = cli.execute_tool("get_process_list")
     elif cmd == "analyze":
         call = cli.execute_tool("analyze_code", path=args.path)
     elif cmd == "mkdir":
@@ -198,7 +222,8 @@ def _repl(cli: AgenticCLI, as_json: bool) -> int:
                 tokens = shlex.split(line)
             except ValueError:
                 tokens = line.split()
-            if tokens and tokens[0] in commands:
+            first_word = tokens[0] if tokens else ""
+            if first_word in commands or first_word in cli.tools:
                 try:
                     sub_args = parser.parse_args(tokens)
                 except SystemExit:
@@ -257,9 +282,12 @@ def _banner(cli: AgenticCLI, tui_mode: bool = False) -> None:
     print(f"  budget  : {budget}")
     print(f"  cwd     : {cli.working_dir}")
     print("-" * 60)
-    print("  Chat: just type a message.")
-    print("  Tools: list/read/write/search/run-code/exec/git-status/git-commit/analyze/stats/config/sessions")
-    print("  Files: mkdir/rmdir/copy/move/delete/exists/disk")
+    print("  Type anything - tool commands or chat naturally.")
+    print("  Tools: list read write search run-code exec mkdir rmdir")
+    print("        copy move delete exists disk analyze")
+    print("  Git:   git-status git-commit git-diff git-log git-branch")
+    print("        git-checkout git-pull git-push")
+    print("  System: env set-env cwd cd os processes")
     print("  Slash: /help /status /system /clear /new /model /backend /cpu /json /exit")
     print("-" * 60)
     print("  Copyright (c) 2024-2026 Rhasan@dev (https://github.com/rbkhan007)")
@@ -434,6 +462,35 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("git-commit", help="Create a git commit.", parents=[common])
     p.add_argument("--message", "-m", required=True)
+
+    p = sub.add_parser("git-diff", help="Show git diff.", parents=[common])
+    p.add_argument("--file", "-f", default=None)
+
+    p = sub.add_parser("git-log", help="Show git log.", parents=[common])
+    p.add_argument("--count", "-n", type=int, default=10)
+
+    sub.add_parser("git-branch", help="List git branches.", parents=[common])
+
+    p = sub.add_parser("git-checkout", help="Checkout a git branch.", parents=[common])
+    p.add_argument("branch")
+
+    sub.add_parser("git-pull", help="Git pull.", parents=[common])
+    sub.add_parser("git-push", help="Git push.", parents=[common])
+
+    p = sub.add_parser("env", help="Get environment variable(s).", parents=[common])
+    p.add_argument("name", nargs="?", default=None)
+
+    p = sub.add_parser("set-env", help="Set environment variable.", parents=[common])
+    p.add_argument("name")
+    p.add_argument("value")
+
+    sub.add_parser("cwd", help="Show current working directory.", parents=[common])
+
+    p = sub.add_parser("cd", help="Change working directory.", parents=[common])
+    p.add_argument("path")
+
+    sub.add_parser("os", help="Show OS information.", parents=[common])
+    sub.add_parser("processes", help="Show running processes.", parents=[common])
 
     p = sub.add_parser("analyze", help="Analyze a code file's metrics.", parents=[common])
     p.add_argument("path")

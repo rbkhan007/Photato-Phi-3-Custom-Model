@@ -339,6 +339,12 @@ class AgenticCLI:
             "run_command": self._run_command,
             "git_status": self._git_status,
             "git_commit": self._git_commit,
+            "git_diff": self._git_diff,
+            "git_log": self._git_log,
+            "git_branch": self._git_branch,
+            "git_checkout": self._git_checkout,
+            "git_pull": self._git_pull,
+            "git_push": self._git_push,
             "analyze_code": self._analyze_code,
             "find_path": self._find_path,
             "chat": self.chat,
@@ -349,6 +355,12 @@ class AgenticCLI:
             "delete_file": self._delete_file,
             "file_exists": self._file_exists,
             "get_disk_usage": self._get_disk_usage,
+            "get_env": self._get_env,
+            "set_env": self._set_env,
+            "get_cwd": self._get_cwd,
+            "set_cwd": self._set_cwd,
+            "get_os_info": self._get_os_info,
+            "get_process_list": self._get_process_list,
         }
 
     # === Tool Implementations ===
@@ -565,6 +577,142 @@ class AgenticCLI:
             return {"success": result.returncode == 0, "output": result.stdout + result.stderr}
         except Exception as e:
             return {"success": False, "error": str(e)}
+
+    def _git_diff(self, file: str = None) -> dict:
+        """Show git diff."""
+        try:
+            cmd = ["git", "diff"]
+            if file:
+                cmd.append(file)
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.working_dir)
+            return {"success": True, "diff": result.stdout}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _git_log(self, count: int = 10) -> dict:
+        """Show git log."""
+        try:
+            result = subprocess.run(
+                ["git", "log", f"--oneline", f"-{count}"],
+                capture_output=True, text=True, cwd=self.working_dir
+            )
+            return {"success": True, "log": result.stdout}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _git_branch(self) -> dict:
+        """List git branches."""
+        try:
+            result = subprocess.run(["git", "branch", "-a"], capture_output=True, text=True, cwd=self.working_dir)
+            return {"success": True, "branches": result.stdout}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _git_checkout(self, branch: str) -> dict:
+        """Checkout a git branch."""
+        try:
+            result = subprocess.run(["git", "checkout", branch], capture_output=True, text=True, cwd=self.working_dir)
+            return {"success": result.returncode == 0, "output": result.stdout + result.stderr}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _git_pull(self) -> dict:
+        """Git pull."""
+        try:
+            result = subprocess.run(["git", "pull"], capture_output=True, text=True, cwd=self.working_dir)
+            return {"success": result.returncode == 0, "output": result.stdout + result.stderr}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _git_push(self) -> dict:
+        """Git push."""
+        try:
+            result = subprocess.run(["git", "push"], capture_output=True, text=True, cwd=self.working_dir)
+            return {"success": result.returncode == 0, "output": result.stdout + result.stderr}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _get_env(self, var_name: str = None) -> dict:
+        """Get environment variable(s)."""
+        try:
+            if var_name:
+                value = os.environ.get(var_name)
+                return {"success": True, "name": var_name, "value": value, "exists": value is not None}
+            else:
+                return {"success": True, "env": dict(os.environ)}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _set_env(self, var_name: str, value: str) -> dict:
+        """Set environment variable."""
+        try:
+            os.environ[var_name] = value
+            return {"success": True, "name": var_name, "value": value}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _get_cwd(self) -> dict:
+        """Get current working directory."""
+        return {"success": True, "cwd": self.working_dir, "actual_cwd": os.getcwd()}
+
+    def _set_cwd(self, path: str) -> dict:
+        """Change working directory."""
+        try:
+            new_path = self._resolve(path)
+            if not new_path.exists():
+                return {"success": False, "error": f"Directory not found: {new_path}"}
+            if not new_path.is_dir():
+                return {"success": False, "error": f"Not a directory: {new_path}"}
+            self.working_dir = str(new_path.resolve())
+            return {"success": True, "cwd": self.working_dir}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _get_os_info(self) -> dict:
+        """Get OS information."""
+        try:
+            import platform
+            info = {
+                "system": platform.system(),
+                "release": platform.release(),
+                "version": platform.version(),
+                "machine": platform.machine(),
+                "processor": platform.processor(),
+                "python_version": platform.python_version(),
+                "hostname": platform.node(),
+            }
+            try:
+                import psutil
+                info["cpu_count"] = psutil.cpu_count()
+                info["cpu_count_physical"] = psutil.cpu_count(logical=False)
+                mem = psutil.virtual_memory()
+                info["ram_total_gb"] = round(mem.total / (1024**3), 2)
+                info["ram_available_gb"] = round(mem.available / (1024**3), 2)
+                info["ram_percent"] = mem.percent
+            except ImportError:
+                pass
+            return {"success": True, "os_info": info}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _get_process_list(self) -> dict:
+        """Get running processes."""
+        try:
+            import psutil
+            processes = []
+            for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent']):
+                try:
+                    processes.append(proc.info)
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+            return {"success": True, "processes": processes[:50]}  # Top 50
+        except ImportError:
+            # Fallback without psutil
+            result = subprocess.run(
+                ["tasklist" if os.name == "nt" else "ps aux"],
+                shell=True, capture_output=True, text=True
+            )
+            return {"success": True, "processes": result.stdout[:2000]}
 
     def _analyze_code(self, path: str) -> dict:
         """Analyze code file for quality and metrics."""

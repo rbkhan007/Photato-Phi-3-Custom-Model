@@ -180,14 +180,13 @@ class TUI:
 
         if text.startswith("/"):
             self._handle_slash(text)
-        elif text.split()[0] in {
-            "list", "read", "write", "search", "run-code",
-            "exec", "git-status", "git-commit", "analyze",
-            "stats", "config", "sessions",
-        }:
-            self._handle_tool(text)
         else:
-            self._handle_chat(text)
+            # Check if input starts with any registered tool name
+            first_word = text.split()[0] if text.split() else ""
+            if first_word in self.cli.tools:
+                self._handle_tool(text)
+            else:
+                self._handle_chat(text)
 
     def _handle_slash(self, text: str):
         """Handle slash commands."""
@@ -212,7 +211,18 @@ class TUI:
                 "  /backend [name]  show or set backend (llamacpp/ollama/openai/auto)\n"
                 "  /cpu [percent]   show or set CPU cap (0-100)\n"
                 "  /json            toggle raw JSON output\n"
-                "  /exit, /quit     leave the CLI"
+                "  /exit, /quit     leave the CLI\n\n"
+                "Tool commands (type directly):\n"
+                "  list <path>           read <file>           write <file> <text>\n"
+                "  search <query>        run-code <code>       exec <cmd>\n"
+                "  mkdir <path>          rmdir <path>          copy <src> <dst>\n"
+                "  move <src> <dst>      delete <path>         exists <path>\n"
+                "  disk <path>           analyze <file>\n"
+                "  git-status  git-commit  git-diff  git-log  git-branch\n"
+                "  git-checkout  git-pull  git-push\n"
+                "  env [name]  set-env <name> <val>  cwd  cd <path>\n"
+                "  os  processes\n\n"
+                "Or just type anything to chat with the AI."
             )
         elif cmd == "status":
             import json
