@@ -6,12 +6,14 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Tests: 455+](https://img.shields.io/badge/Tests-455%2B-brightgreen.svg)]()
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20Mac-lightgrey.svg)]()
 [![Model](https://img.shields.io/badge/Model-Phi--4%20Mini-6B3FA0.svg)]()
 [![Inference](https://img.shields.io/badge/Inference-llama.cpp-E8912D.svg)]()
 [![Tools](https://img.shields.io/badge/Tools-30-green.svg)]()
-[![Capabilities](https://img.shields.io/badge/Capabilities-5-blue.svg)]()
+[![LiveBench](https://img.shields.io/badge/LiveBench-98.7%25-brightgreen.svg)]()
+[![Made in Bangladesh](https://img.shields.io/badge/Made%20in-Bangladesh-006a4e.svg)]()
+[![Release](https://img.shields.io/github/v/release/rbkhan007/Photato-Phi-3-Custom-Model)](https://github.com/rbkhan007/Photato-Phi-3-Custom-Model/releases)
+[![GitHub stars](https://img.shields.io/github/stars/rbkhan007/Photato-Phi-3-Custom-Model?style=social)](https://github.com/rbkhan007/Photato-Phi-3-Custom-Model)
 
 **Copyright (c) 2024-2026 Rhasan@dev** ([@rbkhan007](https://github.com/rbkhan007))
 
