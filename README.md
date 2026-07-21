@@ -9,7 +9,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20Mac-lightgrey.svg)]()
 [![Model](https://img.shields.io/badge/Model-Phi--4%20Mini-6B3FA0.svg)]()
 [![Inference](https://img.shields.io/badge/Inference-llama.cpp-E8912D.svg)]()
-[![Tools](https://img.shields.io/badge/Tools-30-green.svg)]()
+[![Tools](https://img.shields.io/badge/Tools-53-green.svg)]()
 [![LiveBench](https://img.shields.io/badge/LiveBench-98.7%25-brightgreen.svg)]()
 [![Made in Bangladesh](https://img.shields.io/badge/Made%20in-Bangladesh-006a4e.svg)]()
 [![Release](https://img.shields.io/github/v/release/rbkhan007/Photato-Phi-3-Custom-Model)](https://github.com/rbkhan007/Photato-Phi-3-Custom-Model/releases)
@@ -32,7 +32,7 @@ Unlike most local AI tools that are just model runners (Ollama, LM Studio), this
 | What others do | What this also does |
 |---|---|
 | Run GGUF models | **Fine-tune** Phi-3/Phi-4 with LoRA/QLoRA + quantize to GGUF |
-| Chat interface | **Agentic CLI** with 30 built-in tools, RAG, memory, safety |
+| Chat interface | **Agentic CLI** with 53 built-in tools, RAG, memory, safety |
 | Basic inference | **CPU-optimized engine** with AutoTuner + Windows Job Object throttling |
 | Standard benchmarks | **LiveBench harness** — 27 questions, 13 tasks, 5 categories |
 | API server | **Docker deployment**, API gateway, monitoring, MCP support |
@@ -44,7 +44,7 @@ Unlike most local AI tools that are just model runners (Ollama, LM Studio), this
 | License | MIT | Proprietary | AGPL-3.0 | MIT | **MIT** |
 | Fine-tune models | No | No | No | No | **Yes (LoRA/QLoRA)** |
 | Quantize to GGUF | No | No | No | No | **Yes** |
-| Agentic CLI (30 tools) | No | No | No | No | **Yes** |
+| Agentic CLI (53 tools) | No | No | No | No | **Yes** |
 | Built-in RAG | No | No | Partial | LocalDocs | **Yes (GGUF embeddings)** |
 | CPU throttle control | No | No | No | No | **Yes (Windows Job Object)** |
 | LiveBench integration | No | No | No | No | **Yes (27 questions, 5 categories)** |
@@ -56,7 +56,7 @@ Unlike most local AI tools that are just model runners (Ollama, LM Studio), this
 
 - **Fine-tune** Phi-3/Phi-4 models on custom data with memory-efficient LoRA/QLoRA
 - **Quantize** to GGUF for efficient local inference
-- **Run** a fully-featured agentic CLI with 30 tools, RAG, memory, safety, and streaming
+- **Run** a fully-featured agentic CLI with 53 tools, RAG, memory, safety, and streaming
 - **Benchmark** against LiveBench across 13 tasks and 5 categories — real model inference, not stubs
 - **Deploy** with Docker, API gateway, and monitoring
 
@@ -129,7 +129,7 @@ So I asked a different question: *Instead of paying for AI, why not build someth
 
 This project is the answer. It's built on the belief that **Bangladesh doesn't need expensive GPUs or cloud credits to participate in the AI revolution** — we need well-optimized software that respects the hardware available, tools that work offline, and knowledge that stays open for everyone.
 
-University education builds a strong foundation — and I respect that deeply. But passion, discipline, and curiosity can take you just as far when you commit to learning continuously. If one developer from Bangladesh can fine-tune a model, build an agentic CLI with 30 tools, and ship a complete local AI platform through self-study and iteration — imagine what a community of motivated learners can achieve with the same approach.
+University education builds a strong foundation — and I respect that deeply. But passion, discipline, and curiosity can take you just as far when you commit to learning continuously. If one developer from Bangladesh can fine-tune a model, build an agentic CLI with 53 tools, and ship a complete local AI platform through self-study and iteration — imagine what a community of motivated learners can achieve with the same approach.
 
 This isn't just a project. It's proof that **with accessible tools, consistent effort, and the freedom to learn on your own terms, you can build anything.**
 
@@ -169,14 +169,14 @@ flowchart TB
         COT["Extended Thinking CoT"]
     end
 
-    subgraph TOOL[Tools 30]
+    subgraph TOOL[Tools 53]
         TR["ToolRegistry"]
         TP["ToolParser"]
         TE["ToolExecutor Sandboxed"]
         T1["File System 11"]
         T2["Git 8"]
         T3["System 8"]
-        T4["Code 3"]
+        T4["Code 26"]
     end
 
     subgraph TRNOPT[Training and Optimization]
@@ -282,10 +282,10 @@ sequenceDiagram
 ```mermaid
 flowchart LR
     subgraph Frontend
-        PT["prompt_toolkit TUI"]
+        PT["Textual TUI"]
         RICH["Rich Formatting"]
         CLI2["Argparse CLI"]
-        PY["Python 3.10+"]
+        PY["Python 3.14+"]
     end
 
     subgraph Inference
@@ -343,7 +343,7 @@ flowchart LR
 | RAM | 8 GB | 16 GB+ |
 | GPU | None (CPU works) | 4 GB+ VRAM |
 | Storage | 5 GB | 10 GB |
-| Python | 3.10+ | 3.10-3.12 |
+| Python | 3.10+ | 3.10-3.14 |
 
 ### Quick Setup
 
@@ -378,48 +378,100 @@ python -m cli
 
 ## Quick Start
 
-### First Chat
+### First Chat — TUI (Full Screen)
 
 ```bash
 python -m cli
 ```
 
+Launches a full-screen **Textual** TUI with dark theme (`#0d0d0d` background, cyan `#00d7ff` accent):
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    opencode                              │
+│           ╔═══╗╔═══╗╔════╗╔════╗╔═══╗╔════╗            │
+│           ╚═╗╔╝║ ╔═╝╚══╗╔╝║ ╔═╝║ ║ ║╚══╗╔╝            │
+│             ║ ║ ╚═╝    ║ ║ ║ ║  ║ ║ ║  ║ ║             │
+│             ║ ║ ║      ║ ║ ║ ╚═╗║ ╚═╗  ║ ║             │
+│             ║ ║ ║      ║ ║ ║   ║╚══╗║  ║ ║             │
+│             ╚═╝ ╚═╝    ╚═╝ ╚═══╝   ╚═╝  ╚═╝             │
+│                                                         │
+│   Type a message or use /help for commands              │
+│                                                         │
+│   Backend: llamacpp • Model: Phi-4-mini-Q4_K_M          │
+│   Tools: 53 • RAG • Memory • Safety • Thinking          │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│   You: What can you do?                                 │
+│                                                         │
+│   ┌─────────────────────────────────────────────┐       │
+│   │ I can help you with:                        │       │
+│   │ • Chat about any topic                      │       │
+│   │ • Read, write, and search files             │       │
+│   │ • Execute code in multiple languages        │       │
+│   │ • Run system commands                       │       │
+│   │ • Git operations                            │       │
+│   │ • RAG over your documents                   │       │
+│   │ • Web search and data analysis              │       │
+│   └─────────────────────────────────────────────┘       │
+│                                                         │
+│   ┌─────────────────────────────────────────────┐       │
+│   │ * Grep "def main" --include "*.py"          │       │
+│   │ $ python -m pytest tests/ -q                │       │
+│   │ → 459 passed                                │       │
+│   └─────────────────────────────────────────────┘       │
+│                                                         │
+├─────────────────────────────────────────────────────────┤
+│ CWD: G:\...\Photato-Phi-3-Custom-Model | MCP: OK       │
+│ Tokens: 87 | 7.6 tok/s | 11.4s                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+When stdin is piped (non-TTY), falls back to a basic REPL mode automatically.
+
+### Demo (Show All Capabilities)
+
+```bash
+python -m cli demo
+```
+
 ```
 ======================================================================
-  PHI-3 CUSTOM MODEL - AGENTIC CLI  (REPL mode)
+  PHI-3 CUSTOM MODEL - AGENTIC CLI
+  A complete local AI coding assistant
 ======================================================================
-  backend   : llamacpp
-  model     : G:\...\Phi-4-mini-instruct-Q4_K_M.gguf
-  budget    : 55% CPU / ~3 threads
-  capabilities : RAG, Memory, Safety, Thinking
-  tools     : 30 available
-  cwd       : G:\...\Photato-Phi-3-Custom-Model
-----------------------------------------------------------------------
-  Type anything - tool commands or chat naturally.
 
-  FILE:     list read write search mkdir rmdir copy move delete exists disk
-  GIT:      git-status git-commit git-diff git-log git-branch git-checkout
-  SYSTEM:   run-code exec env set-env cwd cd os processes
-  CODE:     analyze  |  CHAT:    just type a message
-  SLASH:    /help /status /system /clear /new /model /backend /cpu /json /exit
+[SYSTEM]
+  OS        : Windows AMD64
+  Python    : 3.14.6
+  CPUs      : 8
+  RAM       : 15.94 GB total
 
-  Run 'python -m cli demo' to see full capabilities
-----------------------------------------------------------------------
-  Copyright (c) 2024-2026 Rhasan@dev (https://github.com/rbkhan007)
-  Licensed under MIT License. See LICENSE file for details.
-----------------------------------------------------------------------
+[BACKEND]
+  Active    : llamacpp
+  Model     : Phi-4-mini-instruct-Q4_K_M.gguf
 
-you> What can you do?
+[CAPABILITIES]
+  RAG Engine           [ON]  Retrieval-Augmented Generation with GGUF embeddings
+  Memory               [ON]  Conversation history tracking
+  Safety Layer         [ON]  Content filtering (toxicity, bias, jailbreak)
+  Extended Thinking    [ON]  Chain-of-thought reasoning
+  Tool Registry        [ON]  Tool management system
 
-assistant> I can help you with:
-- Chat about any topic
-- Read, write, and search files
-- Execute code in multiple languages
-- Run system commands
-- Git operations
-- And much more!
+[TOOLS] (53 available)
+  File System    : read_file, write_file, list_files, search_files, mkdir, rmdir, ...
+  Git            : git_status, git_commit, git_diff, git_log, git_branch, ...
+  System         : run_code, run_command, get_env, set_env, get_cwd, ...
+  Code/Analyze   : analyze_code, find_path, grep, web_search, calculator, ...
 
-  -> 87 tokens - 6.2 tok/s - 14.0s
+[CODE EXECUTION]
+  Languages  : Python, JavaScript, TypeScript, Bash, Go, Rust
+
+[TRAINING]
+  LoRA      : QLoRA with gradient checkpointing
+  Presets   : phi4_mini, qwen3_embedding, colab_free_tier, local_gpu, high_end_gpu
+
+======================================================================
 ```
 
 ### Demo (Show All Capabilities)
@@ -436,7 +488,7 @@ python -m cli demo
 
 [SYSTEM]
   OS        : Windows AMD64
-  Python    : 3.10.11
+  Python    : 3.14.6
   CPUs      : 8
   RAM       : 15.94 GB total
 
@@ -451,7 +503,7 @@ python -m cli demo
   Extended Thinking    [ON]  Chain-of-thought reasoning
   Tool Registry        [ON]  Tool management system
 
-[TOOLS] (30 available)
+[TOOLS] (53 available)
   File System    : read_file, write_file, list_files, search_files, mkdir, rmdir, ...
   Git            : git_status, git_commit, git_diff, git_log, git_branch, ...
   System         : run_code, run_command, get_env, set_env, get_cwd, ...
@@ -493,12 +545,12 @@ python -m cli health
   [OK]     Memory               Initialized
   [OK]     Safety Layer         Initialized
   [OK]     Extended Thinking    Initialized
-  [SKIP]   Tool Registry        Not available
-  [OK]     Tools                30 available
-  [WARN]   Config               No config file found
-  [OK]     Sessions             104 saved
+  [OK]     Tool Registry        Initialized
+  [OK]     Tools                53 available
+  [OK]     Config               C:\Users\...\.agentic_cli\config.json
+  [OK]     Sessions             176 saved
 ------------------------------------------------------------
-  Result: 8 passed, 0 failed, 1 warnings
+  Result: 10 passed, 0 failed, 0 warnings
 ============================================================
 ```
 
@@ -607,14 +659,14 @@ python -m cli sessions search "query"
 | `/json` | Toggle JSON mode |
 | `/exit` | Save & exit |
 
-### Tool Commands (30 tools)
+### Tool Commands (53 tools)
 
 | Category | Tools |
 |----------|-------|
 | **File System** (11) | `read_file`, `write_file`, `list_files`, `search_files`, `mkdir`, `rmdir`, `copy_file`, `move_file`, `delete_file`, `file_exists`, `get_disk_usage` |
 | **Git** (8) | `git_status`, `git_commit`, `git_diff`, `git_log`, `git_branch`, `git_checkout`, `git_pull`, `git_push` |
 | **System** (8) | `run_code`, `run_command`, `get_env`, `set_env`, `get_cwd`, `set_cwd`, `get_os_info`, `get_process_list` |
-| **Code** (3) | `analyze_code`, `find_path`, `chat` |
+| **Code & Analysis** (26) | `analyze_code`, `find_path`, `chat`, `grep`, `glob`, `read`, `write`, `edit`, `web_search`, `webfetch`, `webscrape`, `calculator`, `sql_query`, `plot_data`, `summarize`, `translate`, `explain_code`, `review_code`, `generate_docs`, `generate_tests`, `detect_bugs`, `suggest_refactoring`, `evaluate`, `compare_models`, `benchmark`, `export_results` |
 
 ---
 
@@ -750,10 +802,10 @@ photato-phi-3-custom-model/
 │   ├── __main__.py             # Argparse CLI (620 lines)
 │   ├── model_backend.py        # LlamaCpp, Ollama, OpenAI, Echo
 │   ├── generation.py           # TUI output formatters (550 lines)
-│   └── tui.py                  # Full-screen TUI (620 lines)
+│   └── tui.py                  # Full-screen Textual TUI (830 lines)
 │
 ├── inference/                  # MODEL INFERENCE
-│   ├── auto_tuner.py           # Auto parameter tuning
+│   ├── auto_tuner.py           # Auto parameter tuning (8 task presets)
 │   ├── llama_engine.py         # In-process GGUF inference
 │   └── llama_server.py         # llama.cpp server wrapper
 │
@@ -870,7 +922,7 @@ photato-phi-3-custom-model/
 │   ├── phi4.Modelfile
 │   └── setup_ollama.sh
 │
-├── tests/                      # TESTS (19 files, 455 tests)
+├── tests/                      # TESTS (22 files, 459 tests)
 │   ├── test_cli.py
 │   ├── test_cli_entry.py
 │   ├── test_cli_features.py
@@ -879,7 +931,9 @@ photato-phi-3-custom-model/
 │   ├── test_optimization.py
 │   ├── test_training.py
 │   ├── test_rag.py
-│   └── ... (19 test files, 455 passing)
+│   ├── test_evaluation.py      # Evaluation harness tests
+│   ├── test_suite_runner.py    # Parameterized suite runner (9 suites)
+│   └── ... (22 test files, 459 passing)
 │
 ├── .gitignore
 ├── .gitattributes
@@ -1023,7 +1077,21 @@ python benchmark_results/compare_models.py --models phi4-mini --generate-latex
 python benchmark_results/quick_compare.py
 ```
 
-### Results (phi4-mini, CPU-only)
+### Performance Benchmark (Phi-4-mini-Q4_K_M, CPU-only)
+
+| Metric | Value |
+|--------|-------|
+| **Inference Speed** | 7.6 tok/s avg (range: 7.2–8.1) |
+| **Memory Peak** | 3,973 MB |
+| **Latency Mean** | 1,334 ms |
+| **Latency P95** | 1,447 ms |
+| **Throughput (batch 1)** | 7.2 tok/s |
+| **Throughput (batch 4)** | 7.6 tok/s |
+| **Throughput (batch 8)** | 6.9 tok/s |
+| **Context 128** | 6.6 tok/s |
+| **Context 2048** | 5.1 tok/s |
+
+### LiveBench Scores (phi4-mini, CPU-only)
 
 | Category | Score | Tasks |
 |----------|-------|-------|
@@ -1034,12 +1102,14 @@ python benchmark_results/quick_compare.py
 | Agentic | 95.0 | tool_use, multi_step |
 | **Average** | **98.7** | **13 tasks** |
 
+Full benchmark JSON saved in `benchmark_results/benchmark_20260722_035351.json`.
+
 ---
 
 ## Test Results
 
 ```mermaid
-pie title Test Coverage 455 Tests
+pie title Test Coverage 459 Tests
     "CLI Backends" : 45
     "RAG Embeddings" : 38
     "Memory Streaming" : 32
@@ -1047,10 +1117,11 @@ pie title Test Coverage 455 Tests
     "Tool Calling" : 65
     "Inference Engine" : 55
     "Optimization" : 40
-    "Evaluation" : 45
+    "Evaluation" : 49
     "Integration" : 70
     "Deployment" : 27
     "Training" : 25
+    "Suite Runner" : 9
 ```
 
 | Module | Tests | Status |
@@ -1062,11 +1133,12 @@ pie title Test Coverage 455 Tests
 | Tool Calling | 65 | Passing |
 | Inference Engine | 55 | Passing |
 | Optimization | 40 | Passing |
-| Evaluation | 45 | Passing |
+| Evaluation | 49 | Passing |
 | Integration | 70 | Passing |
+| Suite Runner | 9 | Passing |
 | Deployment | 27 | Passing |
 | Training | 25 | Passing |
-| **Total** | **455** | **All Passing** |
+| **Total** | **459** | **All Passing** |
 
 ---
 
@@ -1288,7 +1360,7 @@ gantt
     Core CLI Backend           :done, 2024-06-01, 2025-01-01
     RAG Memory                 :done, 2025-01-01, 2025-03-01
     Safety Thinking            :done, 2025-03-01, 2025-06-01
-    Tool System 30 tools       :done, 2025-06-01, 2025-09-01
+    Tool System 53 tools       :done, 2025-06-01, 2025-09-01
 
     section Phase 2 Intelligence
     AutoTuner Optimization     :done, 2025-09-01, 2025-12-01
@@ -1371,7 +1443,7 @@ SOFTWARE.
 
 ---
 
-*Phi-3/Phi-4 · llama.cpp · pgvector · generation.py · 30 tools · 5 capabilities · MIT License*
+*Phi-3/Phi-4 · llama.cpp · pgvector · Textual TUI · 53 tools · 5 capabilities · MIT License*
 
 *Zero cloud · Zero API bills · Zero GPU required · 100% free · Open source forever*
 
