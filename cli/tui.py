@@ -228,14 +228,19 @@ class MainScreen(Screen):
         background: #0d0d0d;
     }
 
+    #main-container {
+        height: 100%;
+        layout: vertical;
+    }
+
     #conversation {
         height: 1fr;
         background: #0d0d0d;
-        overflow-y: auto;
+        overflow: auto;
         padding: 1;
     }
 
-    #welcome {
+    #welcome-panel {
         height: auto;
         margin: 2 4;
     }
@@ -294,7 +299,7 @@ class MainScreen(Screen):
         self.query_one("#input", TextArea).focus()
         self._update_subtext()
         self._update_status()
-        self._show_welcome()
+        self.call_after_refresh(self._show_welcome)
 
     def _show_welcome(self) -> None:
         conv = self.query_one("#conversation", ScrollableContainer)
@@ -308,7 +313,7 @@ class MainScreen(Screen):
         )
         ver = Text(f"  Python {platform.python_version()}  Textual 8  Rich  |  by Rhasan@dev", style=Style(color=GRAY))
         panel = Panel(Group(logo, subtitle, hints, ver), border_style=Style(color=ACCENT, dim=True), style=Style(bgcolor=BACKGROUND), padding=(2, 4))
-        welcome = Static(panel, id="welcome")
+        welcome = Static(panel, id="welcome-panel")
         conv.mount(welcome)
         conv.scroll_end(animate=False)
 
@@ -463,6 +468,7 @@ class IndieCodeTUI(App):
 
     TITLE = "indiedev"
     SUB_TITLE = "AI-powered terminal assistant"
+    dark = True
     CSS = """
     Screen {
         background: #0d0d0d;
