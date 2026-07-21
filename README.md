@@ -143,45 +143,59 @@ This isn't just a project. It's proof that **with accessible tools, consistent e
 graph TB
     subgraph "User Interface"
         CLI["python -m cli"]
-        TUI["TUI<br/>(Full Screen)"]
-        REPL["REPL<br/>(Fallback)"]
+        TUI["TUI (Full Screen)"]
+        REPL["REPL (Fallback)"]
     end
 
     subgraph "Core Engine"
-        AG["AgenticCLI<br/>Session Manager"]
-        MB["ModelBackend<br/>Router"]
-        LE["FastLlamaEngine<br/>llama.cpp"]
-        AT["AutoTuner<br/>Task-Aware"]
+        AG["AgenticCLI Session Manager"]
+        MB["ModelBackend Router"]
+        LE["FastLlamaEngine llama.cpp"]
+        AT["AutoTuner Task-Aware"]
     end
 
     subgraph "Backends"
-        LC["llamacpp<br/>(In-Process)"]
-        OC["Ollama<br/>(HTTP)"]
-        OA["OpenAI<br/>(HTTP)"]
-        EB["Echo<br/>(Fallback)"]
+        LC["llamacpp (In-Process)"]
+        OC["Ollama (HTTP)"]
+        OA["OpenAI (HTTP)"]
+        EB["Echo (Fallback)"]
     end
 
     subgraph "AI Capabilities"
-        RAG["RAG Engine"]
-        MEM["Memory"]
-        SAFETY["Safety"]
-        STREAM["Streaming"]
-        COT["Extended Thinking"]
+        RAG["RAG Engine GGUF Embeddings"]
+        MEM["Conversation Memory"]
+        SAFETY["Safety & Jailbreak Detection"]
+        STREAM["Token Streaming"]
+        COT["Extended Thinking CoT"]
     end
 
     subgraph "Tools (30)"
-        TR["Registry"]
-        TP["Parser"]
-        TE["Executor"]
+        TR["ToolRegistry"]
+        TP["ToolParser JSON/XML/Function"]
+        TE["ToolExecutor Sandboxed"]
         T1["File System (11)"]
         T2["Git (8)"]
         T3["System (8)"]
         T4["Code (3)"]
     end
 
+    subgraph "Training & Optimization"
+        TRN["QLoRA Training LoRA r=16"]
+        QUANT["GGUF Quantization"]
+        CPT["CPU Throttle Windows Job Object"]
+        TUNE["AutoTuner Bayesian Sampling"]
+    end
+
+    subgraph "Evaluation & Benchmarking"
+        EV["Evaluation Harness"]
+        LB["LiveBench 27 Questions"]
+        COMP["Model Comparison"]
+        EXPORT["CSV / JSON / LaTeX / Markdown"]
+    end
+
     subgraph "Models"
-        PHI4["Phi-4-mini<br/>Q4_K_M (2.49 GB)"]
-        QWEN["Qwen3-Embed<br/>Q8_0 (639 MB)"]
+        PHI4["Phi-4-mini Q4_K_M (2.49 GB)"]
+        QWEN["Qwen3-Embed Q8_0 (639 MB)"]
     end
 
     CLI --> TUI & REPL
@@ -196,6 +210,14 @@ graph TB
     AG --> TR
     TR --> TP --> TE
     TR --> T1 & T2 & T3 & T4
+    AG --> TRN
+    TRN --> QUANT
+    QUANT --> PHI4
+    LC --> CPT
+    AT --> TUNE
+    EV --> LB & COMP & EXPORT
+    PHI4 --> EV
+    LE --> EV
 ```
 
 ---
@@ -236,6 +258,51 @@ sequenceDiagram
     CLI->>CLI: respond() → record
     CLI-->>TUI: metrics
     TUI-->>U: tok/s + time
+```
+
+---
+
+## Tech Stack
+
+```mermaid
+mindmap
+  root((Phi-3 Custom Model))
+    Frontend
+      prompt_toolkit[TUI - prompt_toolkit]
+      Rich[Rich Text Formatting]
+      Argparse[CLI - Argparse]
+      Python[Python 3.10+]
+    Inference
+      llama-cpp-python[llama.cpp Python Bindings]
+      FastLlamaEngine[Custom CPU Engine]
+      AutoTuner[Bayesian Parameter Tuner]
+      CPU Throttle[Windows Job Object]
+    AI Capabilities
+      RAG[GGUF Embeddings + Cosine Search]
+      Memory[Conversation Summarization]
+      Safety[Toxicity + Jailbreak Detection]
+      Thinking[Chain-of-Thought Reasoning]
+      Streaming[Token-by-Token Output]
+    Tools
+      FileSystem[11 File Operations]
+      Git[8 Git Commands]
+      System[8 System Commands]
+      Code[3 Code Analysis Tools]
+      Executor[Sandboxed Execution]
+    Training
+      transformers[HuggingFace Transformers]
+      peft[PEFT / LoRA]
+      bitsandbytes[4-bit QLoRA]
+      datasets[HuggingFace Datasets]
+    Evaluation
+      LiveBench[27 Questions, 13 Tasks]
+      Harness[CLI Evaluation Harness]
+      Compare[Multi-Model Comparison]
+      Export[CSV / JSON / LaTeX / MD]
+    Storage
+      pgvector[PostgreSQL Vector Store]
+      MemoryStore[In-Memory FAISS]
+      JSON[Conversation JSON Files]
 ```
 
 ---
@@ -782,7 +849,45 @@ photato-phi-3-custom-model/
 
 ---
 
-## LiveBench Benchmark
+## Evaluation Pipeline
+
+```mermaid
+flowchart TB
+    subgraph "Benchmark Sources"
+        LB[LiveBench 27 Questions]
+        CUSTOM[Custom JSON Test Cases]
+        CODE[Code Generation Tasks]
+        QA[Q&A / Instruction Tasks]
+    end
+
+    subgraph "Inference Backends"
+        LE[FastLlamaEngine llama.cpp]
+        OLL[Ollama HTTP]
+        OA[OpenAI HTTP]
+    end
+
+    subgraph "Scoring & Metrics"
+        ACC[Accuracy / Pass Rate]
+        TOK[Token Usage Stats]
+        SPEED[Tokens per Second]
+        QUAL[Response Quality]
+    end
+
+    subgraph "Reports & Export"
+        CSV[CSV Export]
+        MD[Markdown Report]
+        JSON[JSON Results]
+        LATEX[LaTeX Table]
+        COMP[Model Comparison]
+    end
+
+    LB & CUSTOM & CODE & QA --> LE & OLL & OA
+    LE & OLL & OA --> ACC & TOK & SPEED & QUAL
+    ACC & TOK & SPEED & QUAL --> CSV & MD & JSON & LATEX & COMP
+    COMP --> PRINT[Terminal Summary Table]
+```
+
+### LiveBench Benchmark
 
 Covers **27 questions** across **13 tasks** in **5 categories** (reasoning, language, knowledge, safety, agentic).
 
@@ -899,15 +1004,58 @@ graph LR
 
 ---
 
-## Training
+## Training Pipeline
 
 ```mermaid
-flowchart LR
-    A[JSONL Data] --> B[Colab/Local]
-    B --> C[LoRA r=16]
-    C --> D[GGUF Q4_K_M]
-    D --> E["2.49 GB Model"]
-    E --> F[Ollama/llama.cpp]
+flowchart TB
+    subgraph "1. Data Preparation"
+        RAW[Raw JSONL Data] --> TOK[Tokenize]
+        TOK --> SPLIT[Train / Validation Split]
+        SPLIT --> DS[(HuggingFace Dataset)]
+    end
+
+    subgraph "2. Model Loading"
+        BASE[Base Model GGUF] --> CONV[Convert to HuggingFace Format]
+        CONV --> TOK2[Load Tokenizer]
+        TOK2 + CONV --> MODEL[Load Model in 4-bit]
+    end
+
+    subgraph "3. LoRA Configuration"
+        MODEL --> LORA[Apply LoRA r=16, alpha=32]
+        LORA --> LORA_CONFIG[
+            Target Modules: q_proj, v_proj<br/>
+            Dropout: 0.05<br/>
+            Bias: none
+        ]
+    end
+
+    subgraph "4. Training"
+        LORA_CONFIG --> TRAIN[QLoRA Training]
+        DS --> TRAIN
+        TRAIN --> HP{
+            Hyperparameters
+        }
+        HP --> H1["Batch Size: 1-8"]
+        HP --> H2["Learning Rate: 2e-4"]
+        HP --> H3["Seq Length: 512-2048"]
+        HP --> H4["Epochs: 3-5"]
+        TRAIN --> CKPT[Save LoRA Adapter]
+    end
+
+    subgraph "5. Export & Quantize"
+        CKPT --> MERGE[Merge with Base Model]
+        MERGE --> QUANT[Quantize to GGUF]
+        QUANT --> QFORMAT{Quantization Format}
+        QFORMAT -->|Q4_K_M Balanced| Q4["~2.5 GB - 78/100 Quality"]
+        QFORMAT -->|Q3_K_M Fast| Q3["~2.0 GB - 60/100 Quality"]
+        QFORMAT -->|Q8_0 High| Q8["~4.0 GB - 96/100 Quality"]
+    end
+
+    subgraph "6. Deployment"
+        Q4 --> OLLAMA[Ollama Modelfile]
+        Q4 --> CPP[llama.cpp Direct]
+        Q4 --> CLI[Agentic CLI Auto-Detect]
+    end
 ```
 
 ### Training Presets
@@ -977,6 +1125,64 @@ python -m cli sessions save
 
 ---
 
+## Roadmap
+
+```mermaid
+gantt
+    title Project Roadmap
+    dateFormat  YYYY-MM
+    axisFormat  %Y-%m
+
+    section Phase 1: Foundation
+    Core CLI & Backend           :done, 2024-06, 2025-01
+    RAG & Memory                 :done, 2025-01, 2025-03
+    Safety & Thinking            :done, 2025-03, 2025-06
+    Tool System (30 tools)       :done, 2025-06, 2025-09
+
+    section Phase 2: Intelligence
+    AutoTuner & Optimization     :done, 2025-09, 2025-12
+    QLoRA Training               :done, 2025-12, 2026-03
+    LiveBench Integration        :done, 2026-03, 2026-05
+    Evaluation Harness           :done, 2026-05, 2026-07
+
+    section Phase 3: Ecosystem (Current)
+    Bengali Language Support     :active, 2026-07, 2026-10
+    Freelancer Toolkit           :active, 2026-08, 2026-11
+    University Curricula         :2026-09, 2026-12
+    Docker Production Stack      :2026-09, 2026-12
+
+    section Phase 4: Scale
+    RMG Industry Tools           :2026-10, 2027-01
+    Mobile Companion App         :2026-11, 2027-03
+    Community Model Hub          :2027-01, 2027-06
+    Enterprise Dashboard         :2027-03, 2027-06
+```
+
+### How to Contribute
+
+```mermaid
+flowchart LR
+    A[Fork Repo] --> B[Pick an Issue]
+    B --> C[Create Branch]
+    C --> D[Make Changes]
+    D --> E[Run Tests: pytest -x]
+    E --> F[Submit PR]
+    F --> G[Review & Merge]
+    G --> H[Star the Repo ⭐]
+```
+
+| Area | How to Help |
+|------|-------------|
+| **Bengali NLP** | Contribute Bengali datasets or evaluate model outputs |
+| **Testing** | Add test cases or run benchmarks on different hardware |
+| **Documentation** | Improve README, write tutorials, or translate |
+| **Tools** | Build new tool plugins for the agentic CLI |
+| **Training** | Fine-tune Phi-4 on domain-specific data and share adapters |
+| **Bug Reports** | Open issues with reproduction steps |
+| **Feedback** | Share your use case — it shapes the roadmap |
+
+---
+
 ## License
 
 ```
@@ -1007,8 +1213,17 @@ SOFTWARE.
 
 <div align="center">
 
-**Built with care by [Rhasan@dev](https://github.com/rbkhan007)**
+**Built with care by [Rhasan@dev](https://github.com/rbkhan007)** — *Dhaka, Bangladesh*
 
-*Phi-3/Phi-4 + llama.cpp + pgvector + prompt_toolkit + 30 tools + 5 capabilities*
+[![GitHub](https://img.shields.io/badge/GitHub-rbkhan007-181717?logo=github)](https://github.com/rbkhan007)
+[![Email](https://img.shields.io/badge/Email-Contact-D14836?logo=gmail)](mailto:rbkhan00009@gmail.com)
+
+---
+
+*Phi-3/Phi-4 · llama.cpp · pgvector · prompt_toolkit · 30 tools · 5 capabilities · MIT License*
+
+*Zero cloud · Zero API bills · Zero GPU required · 100% free · Open source forever*
+
+⭐ **Star this repo** — it tells the world that local AI matters.
 
 </div>
