@@ -89,6 +89,20 @@ def _dispatch(cli: AgenticCLI, args: argparse.Namespace) -> int:
         call = cli.execute_tool("git_commit", message=args.message)
     elif cmd == "analyze":
         call = cli.execute_tool("analyze_code", path=args.path)
+    elif cmd == "mkdir":
+        call = cli.execute_tool("mkdir", path=args.path)
+    elif cmd == "rmdir":
+        call = cli.execute_tool("rmdir", path=args.path, recursive=args.recursive)
+    elif cmd == "copy":
+        call = cli.execute_tool("copy_file", source=args.source, destination=args.destination)
+    elif cmd == "move":
+        call = cli.execute_tool("move_file", source=args.source, destination=args.destination)
+    elif cmd == "delete":
+        call = cli.execute_tool("delete_file", path=args.path)
+    elif cmd == "exists":
+        call = cli.execute_tool("file_exists", path=args.path)
+    elif cmd == "disk":
+        call = cli.execute_tool("get_disk_usage", path=args.path)
     elif cmd == "stats":
         _print(cli.get_stats(), as_json)
         return 0
@@ -245,6 +259,7 @@ def _banner(cli: AgenticCLI, tui_mode: bool = False) -> None:
     print("-" * 60)
     print("  Chat: just type a message.")
     print("  Tools: list/read/write/search/run-code/exec/git-status/git-commit/analyze/stats/config/sessions")
+    print("  Files: mkdir/rmdir/copy/move/delete/exists/disk")
     print("  Slash: /help /status /system /clear /new /model /backend /cpu /json /exit")
     print("-" * 60)
     print("  Copyright (c) 2024-2026 Rhasan@dev (https://github.com/rbkhan007)")
@@ -422,6 +437,30 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("analyze", help="Analyze a code file's metrics.", parents=[common])
     p.add_argument("path")
+
+    p = sub.add_parser("mkdir", help="Create a directory.", parents=[common])
+    p.add_argument("path")
+
+    p = sub.add_parser("rmdir", help="Remove a directory.", parents=[common])
+    p.add_argument("path")
+    p.add_argument("--recursive", "-r", action="store_true")
+
+    p = sub.add_parser("copy", help="Copy a file or directory.", parents=[common])
+    p.add_argument("source")
+    p.add_argument("destination")
+
+    p = sub.add_parser("move", help="Move a file or directory.", parents=[common])
+    p.add_argument("source")
+    p.add_argument("destination")
+
+    p = sub.add_parser("delete", help="Delete a file.", parents=[common])
+    p.add_argument("path")
+
+    p = sub.add_parser("exists", help="Check if file/directory exists.", parents=[common])
+    p.add_argument("path")
+
+    p = sub.add_parser("disk", help="Show disk usage for a path.", parents=[common])
+    p.add_argument("path", nargs="?", default=".")
 
     sub.add_parser("stats", help="Show session statistics.", parents=[common])
 

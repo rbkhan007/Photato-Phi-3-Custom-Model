@@ -294,6 +294,13 @@ flowchart LR
 | `run-code` | `run-code --lang python --code "print(1)"` |
 | `exec` | `exec git --version` |
 | `analyze` | `analyze cli/__init__.py` |
+| `mkdir` | `mkdir C:/temp/new_folder` |
+| `rmdir` | `rmdir C:/temp/folder --recursive` |
+| `copy` | `copy source.txt dest.txt` |
+| `move` | `move file.txt new_location.txt` |
+| `delete` | `delete old_file.txt` |
+| `exists` | `exists C:/path/to/check` |
+| `disk` | `disk C:/` |
 | `stats` | `stats` |
 | `config` | `config set backend ollama` |
 | `sessions` | `sessions list` |

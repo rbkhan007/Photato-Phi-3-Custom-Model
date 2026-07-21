@@ -290,11 +290,20 @@ class AgenticCLI:
             self.last_usage = dict(getattr(result, "usage", {}) or {})
 
     def _resolve(self, path: str) -> Path:
-        """Resolve a path relative to the session working directory."""
+        """Resolve a path - handles absolute, relative, and Windows paths."""
+        if not path:
+            return Path(self.working_dir)
+        
+        # Normalize path separators for Windows
+        path = path.replace("/", "\\") if os.name == "nt" else path.replace("\\", "/")
+        
         p = Path(path)
         if p.is_absolute():
             return p
-        return Path(self.working_dir) / p
+        
+        # Try to resolve relative to working directory
+        resolved = Path(self.working_dir) / p
+        return resolved
 
     def _detect_system(self) -> dict:
         """Detect system architecture for optimal execution."""
@@ -333,6 +342,13 @@ class AgenticCLI:
             "analyze_code": self._analyze_code,
             "find_path": self._find_path,
             "chat": self.chat,
+            "mkdir": self._mkdir,
+            "rmdir": self._rmdir,
+            "copy_file": self._copy_file,
+            "move_file": self._move_file,
+            "delete_file": self._delete_file,
+            "file_exists": self._file_exists,
+            "get_disk_usage": self._get_disk_usage,
         }
 
     # === Tool Implementations ===
@@ -576,6 +592,112 @@ class AgenticCLI:
         """Find path in knowledge graph."""
         # Placeholder for graph integration
         return {"success": True, "path": [start, goal], "distance": 1}
+
+    def _mkdir(self, path: str, parents: bool = True) -> dict:
+        """Create a directory at the given path."""
+        try:
+            filepath = self._resolve(path)
+            filepath.mkdir(parents=parents, exist_ok=True)
+            return {"success": True, "path": str(filepath.resolve()), "created": True}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _rmdir(self, path: str, recursive: bool = False) -> dict:
+        """Remove a directory."""
+        try:
+            filepath = self._resolve(path)
+            if not filepath.exists():
+                return {"success": False, "error": f"Directory not found: {filepath}"}
+            if filepath.is_file():
+                return {"success": False, "error": f"Not a directory: {filepath}"}
+            if recursive:
+                import shutil
+                shutil.rmtree(filepath)
+            else:
+                filepath.rmdir()
+            return {"success": True, "path": str(filepath.resolve()), "removed": True}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _copy_file(self, source: str, destination: str) -> dict:
+        """Copy a file from source to destination."""
+        try:
+            src = self._resolve(source)
+            dst = self._resolve(destination)
+            if not src.exists():
+                return {"success": False, "error": f"Source not found: {src}"}
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            if src.is_dir():
+                import shutil
+                shutil.copytree(src, dst)
+            else:
+                import shutil
+                shutil.copy2(src, dst)
+            return {"success": True, "source": str(src.resolve()), "destination": str(dst.resolve())}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _move_file(self, source: str, destination: str) -> dict:
+        """Move a file from source to destination."""
+        try:
+            src = self._resolve(source)
+            dst = self._resolve(destination)
+            if not src.exists():
+                return {"success": False, "error": f"Source not found: {src}"}
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            import shutil
+            shutil.move(str(src), str(dst))
+            return {"success": True, "source": str(src.resolve()), "destination": str(dst.resolve())}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _delete_file(self, path: str) -> dict:
+        """Delete a file."""
+        try:
+            filepath = self._resolve(path)
+            if not filepath.exists():
+                return {"success": False, "error": f"File not found: {filepath}"}
+            if filepath.is_dir():
+                return {"success": False, "error": f"Is a directory, use rmdir: {filepath}"}
+            filepath.unlink()
+            return {"success": True, "path": str(filepath.resolve()), "deleted": True}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _file_exists(self, path: str) -> dict:
+        """Check if a file or directory exists."""
+        try:
+            filepath = self._resolve(path)
+            return {
+                "success": True,
+                "path": str(filepath.resolve()),
+                "exists": filepath.exists(),
+                "is_file": filepath.is_file() if filepath.exists() else False,
+                "is_dir": filepath.is_dir() if filepath.exists() else False,
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _get_disk_usage(self, path: str = ".") -> dict:
+        """Get disk usage information for a path."""
+        try:
+            filepath = self._resolve(path)
+            if not filepath.exists():
+                return {"success": False, "error": f"Path not found: {filepath}"}
+            
+            import shutil
+            usage = shutil.disk_usage(filepath)
+            
+            return {
+                "success": True,
+                "path": str(filepath.resolve()),
+                "total_gb": round(usage.total / (1024**3), 2),
+                "used_gb": round(usage.used / (1024**3), 2),
+                "free_gb": round(usage.free / (1024**3), 2),
+                "percent_used": round((usage.used / usage.total) * 100, 1),
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
 
     # === Message Handling ===
 
