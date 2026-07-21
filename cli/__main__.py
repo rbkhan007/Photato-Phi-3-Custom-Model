@@ -314,7 +314,7 @@ def _repl(cli: AgenticCLI, as_json: bool, beginner: bool = False) -> int:
             from cli.tui import run_tui
             run_tui(cli)
             return 0
-        except Exception:
+        except ImportError:
             pass
     # Fallback to basic REPL if TUI unavailable or non-interactive
     _banner(cli, tui_mode=False, beginner=beginner)
@@ -627,7 +627,7 @@ def _command_names(parser: argparse.ArgumentParser) -> set:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    __version__ = "0.1.0"
+    __version__ = "0.2.0"
 
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument(

@@ -352,7 +352,6 @@ class AgenticCLI:
         system_prompt = self.config.get("system_prompt")
         
         # Add real-time system info to system prompt
-        from datetime import datetime
         now = datetime.now()
         system_info = (
             f"\n\n[SYSTEM INFORMATION - Real-time]\n"
@@ -431,7 +430,6 @@ class AgenticCLI:
         system_prompt = self.config.get("system_prompt")
         
         # Add real-time system info to system prompt
-        from datetime import datetime
         now = datetime.now()
         system_info = (
             f"\n\n[SYSTEM INFORMATION - Real-time]\n"
@@ -595,17 +593,15 @@ class AgenticCLI:
     def _setup_capabilities(self):
         """Initialize advanced capabilities (RAG, memory, safety, etc.)."""
         import sys
-        from io import StringIO
+        import contextlib
 
         # RAG Engine (suppress initialization output)
         try:
-            old_stdout = sys.stdout
-            sys.stdout = StringIO()
-            from capabilities.rag import RAGEngine
-            self._rag_engine = RAGEngine()
-            sys.stdout = old_stdout
+            with open(os.devnull, "w") as null:
+                with contextlib.redirect_stdout(null):
+                    from capabilities.rag import RAGEngine
+                    self._rag_engine = RAGEngine()
         except Exception:
-            sys.stdout = sys.__stdout__
             self._rag_engine = None
 
         # Conversation Memory
@@ -971,7 +967,6 @@ class AgenticCLI:
     def _get_system_datetime(self) -> dict:
         """Get current date and time from the OS."""
         try:
-            from datetime import datetime
             now = datetime.now()
             return {
                 "success": True,
@@ -987,9 +982,6 @@ class AgenticCLI:
     def _get_system_info(self) -> dict:
         """Get comprehensive real-time system information."""
         try:
-            import platform
-            from datetime import datetime
-            
             info = {
                 "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "date": datetime.now().strftime("%Y-%m-%d"),
@@ -1264,10 +1256,15 @@ class AgenticCLI:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def _find_path(self, start: str, goal: str) -> dict:
-        """Find path in knowledge graph."""
-        # Placeholder for graph integration
-        return {"success": True, "path": [start, goal], "distance": 1}
+    def _find_path(self, start: str, goal: str = "") -> dict:
+        """Resolve a filesystem path relative to working directory."""
+        try:
+            p = self._resolve(start)
+            if not p.exists():
+                return {"success": False, "error": f"Path not found: {p}"}
+            return {"success": True, "path": str(p.resolve()), "exists": True, "is_dir": p.is_dir()}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
 
     def _mkdir(self, path: str, parents: bool = True) -> dict:
         """Create a directory at the given path."""
@@ -1549,11 +1546,14 @@ def demo():
         "File System": ["read_file", "write_file", "list_files", "search_files", "mkdir", "rmdir", "copy_file", "move_file", "delete_file", "file_exists", "get_disk_usage"],
         "Git": ["git_status", "git_commit", "git_diff", "git_log", "git_branch", "git_checkout", "git_pull", "git_push"],
         "System": ["run_code", "run_command", "get_env", "set_env", "get_cwd", "set_cwd", "get_os_info", "get_process_list"],
-        "Code": ["analyze_code", "find_path", "chat"],
+        "Code": ["analyze_code", "find_path", "chat", "get_datetime", "get_system_info"],
+        "Shell": ["run_powershell", "run_terminal", "stream_terminal", "get_ps_version", "get_available_shells"],
+        "Windows": ["list_services", "get_service", "start_service", "stop_service", "restart_service", "kill_process", "start_process", "read_registry", "write_registry", "get_event_log", "get_network_config", "test_network", "list_scheduled_tasks", "check_windows_updates", "get_windows_system_info", "get_disk_info"],
     }
     for group, tools in tool_groups.items():
         available = [t for t in tools if t in cli.tools]
-        print(f"  {group:<15}: {', '.join(available)}")
+        if available:
+            print(f"  {group:<15}: {', '.join(available)}")
 
     # Code execution languages
     print("\n[CODE EXECUTION]")
@@ -1577,7 +1577,7 @@ def demo():
 
     # New features
     print("\n[NEW FEATURES]")
-    print("  --version          Show version (v0.1.0)")
+    print("  --version          Show version (v0.2.0)")
     print("  --verbose          Enable debug output")
     print("  health             Run health check on all components")
     print("  config get         Show all configuration")

@@ -229,7 +229,8 @@ class MainScreen(Screen):
         footer = self.query_one("#status-bar", Footer)
         cli = self.app.cli
         wd = str(cli.working_dir)[:50] if hasattr(cli, "working_dir") else "."
-        n_mcp = len(getattr(cli, "_tool_registry", None) or []) if hasattr(cli, "_tool_registry") else 0
+        tr = getattr(cli, "_tool_registry", None)
+        n_mcp = len(tr) if tr is not None else 0
         n_msgs = len(cli.session.messages) if hasattr(cli, "session") else 0
         tokens_est = n_msgs * 256
         pct = min(100, int(tokens_est / 200_000 * 100))

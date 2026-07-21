@@ -114,9 +114,17 @@ class TestTools:
 
     def test_find_path(self, tmp_path):
         cli = AgenticCLI(str(tmp_path))
-        call = cli.execute_tool("find_path", start="A", goal="B")
+        f = tmp_path / "existing_file.txt"
+        f.write_text("hello")
+        call = cli.execute_tool("find_path", start=str(f))
         assert call.success is True
-        assert call.output["path"] == ["A", "B"]
+        assert call.output["exists"] is True
+
+    def test_find_path_missing(self, tmp_path):
+        cli = AgenticCLI(str(tmp_path))
+        call = cli.execute_tool("find_path", start="nonexistent_path_xyz")
+        assert call.success is False
+        assert "error" in call.output
 
     def test_run_code_python(self, tmp_path):
         cli = AgenticCLI(str(tmp_path))
