@@ -1,0 +1,26 @@
+# Modelfile for Phi-3 Mini Custom (GGUF)
+# Update the FROM path to point to your quantized GGUF file
+
+FROM ./phi3-mini-q4_k_m.gguf
+
+# ChatML template for Phi-3
+TEMPLATE """{{ if .System }}<|system|>
+{{ .System }}<|end|>
+{{ end }}{{ if .Prompt }}<|user|>
+{{ .Prompt }}<|end|>
+{{ end }}<|assistant|>
+"""
+
+# System prompt (optional, can be overridden at runtime)
+SYSTEM """You are a helpful, harmless, and honest assistant."""
+
+# Parameters
+PARAMETER stop "<|end|>"
+PARAMETER temperature 0.7
+PARAMETER top_p 0.9
+PARAMETER top_k 40
+PARAMETER repeat_penalty 1.1
+PARAMETER num_ctx 4096
+
+# Description
+DESCRIPTION "Phi-3 Mini 3.8B - Custom fine-tuned and quantized model"

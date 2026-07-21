@@ -1,0 +1,82 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+eggs/
+*.whl
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Models (large files - use Git LFS)
+*.gguf
+*.bin
+*.safetensors
+*.pt
+*.pth
+*.onnx
+
+# Data
+data/live_bench/model_answer/*.jsonl
+data/live_bench/model_judgment/*.jsonl
+test_results.json
+df_raw.csv
+all_tasks.csv
+all_groups.csv
+latex_table.csv
+task_usage.csv
+group_usage.csv
+
+# Benchmark Results (generated)
+benchmark_results/*.csv
+benchmark_results/*.tex
+benchmark_results/*.json
+benchmark_results/comparison_report.md
+
+# Logs
+*.log
+logs/
+
+# Secrets
+.env
+.env.local
+secrets/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Training outputs
+*.adapter/
+outputs/
+runs/

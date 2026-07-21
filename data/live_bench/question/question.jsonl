@@ -1,0 +1,8 @@
+{"question_id": 1, "task": "math", "category": "reasoning", "release": "2025-07-07", "question": "What is 2+2?"}
+{"question_id": 2, "task": "math", "category": "reasoning", "release": "2025-07-07", "question": "Solve x^2 - 5x + 6 = 0"}
+{"question_id": 3, "task": "code", "category": "reasoning", "release": "2025-07-07", "question": "Write a Python function to sort a list"}
+{"question_id": 4, "task": "writing", "category": "language", "release": "2025-07-07", "question": "Write a haiku about programming"}
+{"question_id": 5, "task": "extraction", "category": "language", "release": "2025-07-07", "question": "Extract named entities from: Python was created by Guido van Rossum"}
+{"question_id": 6, "task": "science", "category": "knowledge", "release": "2025-07-07", "question": "What is the speed of light?"}
+{"question_id": 7, "task": "history", "category": "knowledge", "release": "2025-07-07", "question": "When was the internet invented?"}
+{"question_id": 8, "task": "tool_use", "category": "agentic", "release": "2025-07-07", "question": "Calculate 15% of 200"}

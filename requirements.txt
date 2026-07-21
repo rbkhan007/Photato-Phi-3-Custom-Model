@@ -1,0 +1,63 @@
+# =============================================================================
+# phi3-custom-model - Dependency manifest
+# -----------------------------------------------------------------------------
+# Install core deps:   pip install -r requirements.txt
+# Install + run tests: pip install -r requirements.txt pytest
+# Optional browser automation deps are grouped at the bottom (install on demand).
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Core ML / Fine-tuning / Quantization
+# -----------------------------------------------------------------------------
+torch>=2.1.0
+transformers>=4.40.0
+peft>=0.10.0
+trl>=0.8.0
+bitsandbytes>=0.43.0
+datasets>=2.19.0
+accelerate>=0.30.0
+auto-gptq>=0.7.0
+huggingface_hub>=0.23.0
+sentencepiece>=0.2.0
+protobuf>=4.25.0
+numpy>=1.24.0
+
+# -----------------------------------------------------------------------------
+# Inference / Local model serving (llama.cpp bindings)
+# -----------------------------------------------------------------------------
+llama-cpp-python>=0.2.0
+
+# -----------------------------------------------------------------------------
+# Agents / Tools / Web access
+# -----------------------------------------------------------------------------
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+aiohttp>=3.9.0
+
+# -----------------------------------------------------------------------------
+# Optimization / Evaluation / Monitoring
+# -----------------------------------------------------------------------------
+psutil>=5.9.0
+networkx>=3.2.0
+# Benchmarking only (evaluation/benchmark.py). The PyPI distribution is `lm_eval`
+# (provides the `lm_eval` import); `lm-eval-harness` is NOT a real package name.
+lm_eval>=0.4.0
+
+# -----------------------------------------------------------------------------
+# Testing
+# -----------------------------------------------------------------------------
+pytest>=7.4.0
+
+# -----------------------------------------------------------------------------
+# OPTIONAL - Vector storage (PostgreSQL + pgvector)
+# Only needed when using PGVectorStore (capabilities.rag) for persistent,
+# similarity-search-backed RAG. Provides psycopg (v3) with binary wheels.
+# -----------------------------------------------------------------------------
+# psycopg[binary]>=3.1.0
+
+# -----------------------------------------------------------------------------
+# OPTIONAL - Browser automation (only needed for the `browser` module)
+# Uncomment / install when you actually use Playwright or Selenium.
+# -----------------------------------------------------------------------------
+# playwright>=1.40.0
+# selenium>=4.15.0
