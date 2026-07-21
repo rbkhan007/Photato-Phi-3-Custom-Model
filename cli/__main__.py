@@ -182,20 +182,63 @@ def _sessions_cmd(cli: AgenticCLI, args: argparse.Namespace) -> int:
     return 2
 
 
-def _repl(cli: AgenticCLI, as_json: bool) -> int:
+def _repl(cli: AgenticCLI, as_json: bool, beginner: bool = False) -> int:
     """Interactive agentic bot loop with prompt_toolkit TUI.
 
     - Plain text is sent to the model (streamed when supported).
     - Tool commands (``list``, ``read``, ...) are parsed and dispatched.
     - Slash commands (``/help``, ``/status``, ...) control the session.
+    - Set beginner=True for simplified commands and helpful tips.
     """
+    # Beginner-friendly command aliases
+    BEGINNER_ALIASES = {
+        "files": "list",
+        "dir": "list",
+        "ls": "list",
+        "view": "read",
+        "cat": "read",
+        "type": "read",
+        "create": "write",
+        "edit": "write",
+        "make": "write",
+        "find": "search",
+        "grep": "search",
+        "look": "search",
+        "code": "run-code",
+        "exec": "run-code",
+        "run": "run-code",
+        "execute": "exec",
+        "cmd": "exec",
+        "shell": "exec",
+        "computer": "os",
+        "system": "os",
+        "info": "os",
+        "programs": "processes",
+        "apps": "processes",
+        "running": "processes",
+        "folder": "cwd",
+        "path": "cwd",
+        "location": "cwd",
+        "space": "disk",
+        "storage": "disk",
+        "analyze": "analyze",
+        "check": "analyze",
+        "test": "analyze",
+        "git": "git-status",
+        "status": "git-status",
+        "log": "git-log",
+        "history": "git-log",
+        "diff": "git-diff",
+        "changes": "git-diff",
+    }
+
     try:
         from cli.tui import run_tui
         run_tui(cli)
         return 0
     except Exception:
         # Fallback to basic REPL if TUI fails (e.g. no Windows console)
-        _banner(cli, tui_mode=False)
+        _banner(cli, tui_mode=False, beginner=beginner)
         json_mode = as_json
         parser = _build_parser()
         commands = _command_names(parser)
@@ -223,6 +266,10 @@ def _repl(cli: AgenticCLI, as_json: bool) -> int:
             except ValueError:
                 tokens = line.split()
             first_word = tokens[0] if tokens else ""
+            # Apply beginner-friendly aliases
+            if beginner and first_word in BEGINNER_ALIASES:
+                tokens[0] = BEGINNER_ALIASES[first_word]
+                first_word = tokens[0]
             if first_word in commands or first_word in cli.tools:
                 try:
                     sub_args = parser.parse_args(tokens)
@@ -262,7 +309,7 @@ def _chat_turn(cli: AgenticCLI, line: str, json_mode: bool) -> None:
         print(f"\n[error: {e}]")
 
 
-def _banner(cli: AgenticCLI, tui_mode: bool = False) -> None:
+def _banner(cli: AgenticCLI, tui_mode: bool = False, beginner: bool = False) -> None:
     backend = cli.backend
     model = getattr(backend, "model_path", None) or getattr(backend, "model", cli.config.get("model"))
     cpu = cli.config.get("cpu_percent", 55.0)
@@ -285,31 +332,47 @@ def _banner(cli: AgenticCLI, tui_mode: bool = False) -> None:
         caps.append("Thinking")
     caps_str = ", ".join(caps) if caps else "None"
 
-    bar = "=" * 70
+    # Colors for terminal
+    BLUE = "\033[94m"
+    GREEN = "\033[92m"
+    CYAN = "\033[96m"
+    YELLOW = "\033[93m"
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+    DIM = "\033[2m"
+
     mode = "TUI" if tui_mode else "REPL"
-    print(bar)
-    print(f"  PHI-3 CUSTOM MODEL - AGENTIC CLI  ({mode} mode)")
-    print(bar)
-    print(f"  backend   : {backend.name}")
-    print(f"  model     : {model}")
-    print(f"  budget    : {budget}")
-    print(f"  capabilities : {caps_str}")
-    print(f"  tools     : {len(cli.tools)} available")
-    print(f"  cwd       : {cli.working_dir}")
-    print("-" * 70)
-    print("  Type anything - tool commands or chat naturally.")
     print()
-    print("  FILE:     list read write search mkdir rmdir copy move delete exists disk")
-    print("  GIT:      git-status git-commit git-diff git-log git-branch git-checkout")
-    print("  SYSTEM:   run-code exec env set-env cwd cd os processes")
-    print("  CODE:     analyze  |  CHAT:    just type a message")
-    print("  SLASH:    /help /status /system /clear /new /model /backend /cpu /json /exit")
+    print(f"  {BLUE}{BOLD}PHI-3 CUSTOM MODEL{RESET} {DIM}({mode} mode){RESET}")
+    print(f"  {DIM}{'-' * 50}{RESET}")
+    print(f"  Model: {GREEN}{model.split('/')[-1] if '/' in model else model}{RESET}")
+    print(f"  Backend: {CYAN}{backend.name}{RESET}")
+    print(f"  Capabilities: {YELLOW}{caps_str}{RESET}")
     print()
-    print("  Run 'python -m cli demo' to see full capabilities")
-    print("-" * 70)
-    print("  Copyright (c) 2024-2026 Rhasan@dev (https://github.com/rbkhan007)")
-    print("  Licensed under MIT License. See LICENSE file for details.")
-    print("-" * 70)
+    print(f"  {BOLD}Welcome! Here's what you can do:{RESET}")
+    print()
+    print(f"  {GREEN}1.{RESET} {BOLD}Chat with AI{RESET} - just type a question!")
+    print(f"     Example: {DIM}What is machine learning?{RESET}")
+    print()
+    print(f"  {GREEN}2.{RESET} {BOLD}Use commands{RESET} - type any of these:")
+    print(f"     {CYAN}list{RESET} - see files  |  {CYAN}read <file>{RESET} - view file")
+    print(f"     {CYAN}write <file>{RESET} - create/edit  |  {CYAN}run-code{RESET} - execute code")
+    print(f"     {CYAN}os{RESET} - computer info  |  {CYAN}disk{RESET} - disk space")
+    print()
+    print(f"  {GREEN}3.{RESET} Type {YELLOW}/help{RESET} to see all commands")
+    print(f"  {GREEN}4.{RESET} Type {YELLOW}/exit{RESET} to quit")
+    print()
+    print(f"  {DIM}{'-' * 50}{RESET}")
+    print(f"  {BOLD}TIP:{RESET} Just type naturally - AI understands!")
+    if beginner:
+        print()
+        print(f"  {YELLOW}BEGINNER MODE ACTIVE{RESET}")
+        print(f"  {DIM}You can use simple commands:{RESET}")
+        print(f"    {CYAN}files{RESET} = list files  |  {CYAN}view{RESET} = read file")
+        print(f"    {CYAN}create{RESET} = write file  |  {CYAN}code{RESET} = run code")
+        print(f"    {CYAN}computer{RESET} = system info  |  {CYAN}space{RESET} = disk space")
+        print(f"    {CYAN}find{RESET} = search  |  {CYAN}check{RESET} = analyze")
+    print()
 
 
 def _status(cli: AgenticCLI) -> None:
@@ -345,31 +408,66 @@ def _slash(cli: AgenticCLI, line: str, commands: set, json_mode: bool):
         cli.save_session()
         return "exit"
     if cmd == "help":
-        print("Slash commands:")
-        print("  /help            show this help")
-        print("  /status          backend, model, CPU budget, session stats")
-        print("  /system          raw system detection info")
-        print("  /clear           clear conversation history")
-        print("  /new             start a fresh session")
-        print("  /model [path]    show or set the model")
-        print("  /backend [name]  show or set backend (llamacpp/ollama/openai/auto)")
-        print("  /cpu [percent]   show or set CPU cap (0-100)")
-        print("  /search <query>  search past sessions")
-        print("  /export [file]   export session as markdown")
-        print("  /plugins         load custom plugins")
-        print("  /json            toggle raw JSON output")
-        print("  /exit, /quit     leave the CLI")
-        print("\nTool commands (type directly):")
-        print("  list <path>           read <file>           write <file> <text>")
-        print("  search <query>        run-code <code>       exec <cmd>")
-        print("  mkdir <path>          rmdir <path>          copy <src> <dst>")
-        print("  move <src> <dst>      delete <path>         exists <path>")
-        print("  disk <path>           analyze <file>")
-        print("  git-status  git-commit  git-diff  git-log  git-branch")
-        print("  git-checkout  git-pull  git-push")
-        print("  env [name]  set-env <name> <val>  cwd  cd <path>")
-        print("  os  processes  stats  config  sessions")
-        print("\nOr just type anything to chat with the AI.")
+        print()
+        print("  AVAILABLE COMMANDS")
+        print("  " + "=" * 50)
+        print()
+        print("  CHAT:")
+        print("    Just type any message to chat with the AI")
+        print("    Example: What is Python?")
+        print()
+        print("  FILES:")
+        print("    list [path]          Show files in a folder")
+        print("    read <file>          Read a file's contents")
+        print("    write <file>         Create or edit a file")
+        print("    search <query>       Find text in files")
+        print("    analyze <file>       Analyze code quality")
+        print()
+        print("  CODE:")
+        print("    run-code <code>      Run Python/JS/other code")
+        print("    exec <command>       Run a system command")
+        print()
+        print("  SYSTEM:")
+        print("    os                   Show computer info")
+        print("    processes            Show running programs")
+        print("    cwd                  Show current folder")
+        print("    disk [path]          Show disk space")
+        print("    env [name]           Show environment info")
+        print()
+        print("  GIT (for developers):")
+        print("    git-status           Show git status")
+        print("    git-log              Show git history")
+        print("    git-diff             Show changes")
+        print()
+        print("  BEGINNER-FRIENDLY ALIASES:")
+        print("    files, dir, ls       = list")
+        print("    view, cat, type      = read")
+        print("    create, edit, make   = write")
+        print("    find, grep, look     = search")
+        print("    code, run            = run-code")
+        print("    execute, cmd, shell  = exec")
+        print("    computer, system     = os")
+        print("    programs, apps       = processes")
+        print("    folder, location     = cwd")
+        print("    space, storage       = disk")
+        print("    check, test          = analyze")
+        print()
+        print("  SESSION:")
+        print("    /clear               Clear chat history")
+        print("    /new                 Start fresh session")
+        print("    /export              Save chat as file")
+        print("    /search <query>      Search old conversations")
+        print()
+        print("  SETTINGS:")
+        print("    /status              Show current settings")
+        print("    /model               Change AI model")
+        print("    /backend             Change backend")
+        print("    /help                Show this help")
+        print("    /exit                Quit the program")
+        print()
+        print("  " + "=" * 50)
+        print("  TIP: Just type naturally - AI understands!")
+        print()
         return None
     if cmd == "status":
         _status(cli)
@@ -457,6 +555,12 @@ def _build_parser() -> argparse.ArgumentParser:
         type=float,
         default=55.0,
         help="Cap CPU usage to this percent (Windows Job Object hard cap; 100=unlimited).",
+    )
+    parser.add_argument(
+        "--beginner",
+        action="store_true",
+        default=False,
+        help="Enable beginner mode with simpler commands and tips.",
     )
 
     sub = parser.add_subparsers(dest="command")
@@ -668,7 +772,7 @@ def main(argv: Optional[list] = None) -> int:
     cli = AgenticCLI(working_dir=args.working_dir, config=override)
 
     if args.command is None or args.command == "repl":
-        return _repl(cli, getattr(args, "json", False))
+        return _repl(cli, getattr(args, "json", False), beginner=getattr(args, "beginner", False))
 
     if args.command == "health":
         _health_check(cli)

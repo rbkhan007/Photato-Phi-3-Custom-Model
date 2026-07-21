@@ -111,7 +111,7 @@ class TUI:
             # Conversation history (takes remaining space)
             history_window,
             # Separator line
-            Window(height=1, content=FormattedTextControl(text="─" * 80)),
+            Window(height=1, content=FormattedTextControl(text="-" * 80)),
             # Input buffer
             input_window,
             # Status bar (fixed height 1)
@@ -205,31 +205,38 @@ class TUI:
             self._app.exit()
         elif cmd == "help":
             self._add_system_message(
-                "Slash commands:\n"
-                "  /help            show this help\n"
-                "  /status          backend, model, CPU budget, session stats\n"
-                "  /system          raw system detection info\n"
-                "  /clear           clear conversation history\n"
-                "  /new             start a fresh session\n"
-                "  /model [path]    show or set the model\n"
-                "  /backend [name]  show or set backend (llamacpp/ollama/openai/auto)\n"
-                "  /cpu [percent]   show or set CPU cap (0-100)\n"
-                "  /search <query>  search past sessions\n"
-                "  /export [file]   export session as markdown\n"
-                "  /plugins         load custom plugins\n"
-                "  /json            toggle raw JSON output\n"
-                "  /exit, /quit     leave the CLI\n\n"
-                "Tool commands (type directly):\n"
-                "  list <path>           read <file>           write <file> <text>\n"
-                "  search <query>        run-code <code>       exec <cmd>\n"
-                "  mkdir <path>          rmdir <path>          copy <src> <dst>\n"
-                "  move <src> <dst>      delete <path>         exists <path>\n"
-                "  disk <path>           analyze <file>\n"
-                "  git-status  git-commit  git-diff  git-log  git-branch\n"
-                "  git-checkout  git-pull  git-push\n"
-                "  env [name]  set-env <name> <val>  cwd  cd <path>\n"
-                "  os  processes\n\n"
-                "Or just type anything to chat with the AI."
+                "AVAILABLE COMMANDS\n"
+                "=" * 50 + "\n\n"
+                "CHAT:\n"
+                "  Just type any message to chat with the AI\n"
+                "  Example: What is Python?\n\n"
+                "FILES:\n"
+                "  list [path]          Show files in a folder\n"
+                "  read <file>          Read a file's contents\n"
+                "  write <file>         Create or edit a file\n"
+                "  search <query>       Find text in files\n"
+                "  analyze <file>       Analyze code quality\n\n"
+                "CODE:\n"
+                "  run-code <code>      Run Python/JS/other code\n"
+                "  exec <command>       Run a system command\n\n"
+                "SYSTEM:\n"
+                "  os                   Show computer info\n"
+                "  processes            Show running programs\n"
+                "  cwd                  Show current folder\n"
+                "  disk [path]          Show disk space\n\n"
+                "SESSION:\n"
+                "  /clear               Clear chat history\n"
+                "  /new                 Start fresh session\n"
+                "  /export              Save chat as file\n"
+                "  /search <query>      Search old conversations\n\n"
+                "SETTINGS:\n"
+                "  /status              Show current settings\n"
+                "  /model               Change AI model\n"
+                "  /backend             Change backend\n"
+                "  /help                Show this help\n"
+                "  /exit                Quit the program\n\n"
+                "=" * 50 + "\n"
+                "TIP: Just type naturally - AI understands!"
             )
         elif cmd == "status":
             import json
