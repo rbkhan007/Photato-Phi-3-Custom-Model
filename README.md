@@ -581,7 +581,7 @@ photato-phi-3-custom-model/
 │
 ├── evaluation/                 # EVALUATION
 │   ├── benchmark.py            # Benchmarking
-│   ├── harness.py              # lm_eval harness
+│   ├── harness.py              # Evaluation harness (LiveBench, custom, compare, export)
 │   ├── test_suite.py           # Test suite
 │   └── testing.py              # Testing utilities
 │
@@ -613,9 +613,10 @@ photato-phi-3-custom-model/
 │   ├── docker_setup.py
 │   └── registry.py
 │
-├── livebench/                  # LIVEBENCH BENCHMARK
-│   ├── common.py
-│   └── model.py
+├── livebench/                  # LIVEBENCH BENCHMARK (13 tasks, 5 categories)
+│   ├── __init__.py             # Categories & tasks definitions
+│   ├── common.py               # Question loading utilities
+│   └── model.py                # Model config registry (phi4-mini, qwen3-embedding)
 │
 ├── knowledge_graph/            # KNOWLEDGE GRAPH
 │   └── __init__.py
@@ -624,10 +625,11 @@ photato-phi-3-custom-model/
 │   ├── quantize_gguf.py
 │   └── quantize_gptq.py
 │
-├── benchmark_results/          # BENCHMARK DATA
-│   ├── compare_models.py
-│   ├── config.py
-│   ├── quick_compare.py
+├── benchmark_results/          # BENCHMARK COMPARISON
+│   ├── __init__.py             # Package exports
+│   ├── compare_models.py       # Full comparison pipeline (CSV, LaTeX, JSON, Markdown)
+│   ├── config.py               # Model/task/weight configuration
+│   ├── quick_compare.py        # Quick CSV-based comparison
 │   └── *.csv, *.tex, *.json
 │
 ├── data/                       # TRAINING DATA
@@ -680,28 +682,59 @@ photato-phi-3-custom-model/
 
 ## LiveBench Benchmark
 
-### Run Benchmark
+Covers **27 questions** across **13 tasks** in **5 categories** (reasoning, language, knowledge, safety, agentic).
+
+### Evaluation Harness CLI
 
 ```bash
-# Benchmark Phi-4 Mini
-python show_livebench_result.py --model-list phi4-mini --run-benchmark
+# List available benchmarks
+python -m evaluation.harness list
 
-# View results
-python show_livebench_result.py --model-list phi4-mini --print-usage
+# Run LiveBench benchmark (requires model)
+python -m evaluation.harness livebench --model phi4-mini
 
-# Generate comparison reports
-python benchmark_results/compare_models.py --generate-latex
+# Run custom evaluation from JSON test file
+python -m evaluation.harness custom --tests tests.json --name my_eval
+
+# Compare multiple models
+python -m evaluation.harness compare --models phi4-mini other-model
+
+# Generate report from results
+python -m evaluation.harness report --results results.json --format md
+
+# Export LiveBench data to benchmark_results/
+python -m evaluation.harness export
 ```
 
-### Results
+### Script Usage
 
-| Category | Score | Tokens |
-|----------|-------|--------|
-| Reasoning | 100.0 | 97.0 |
-| Language | 100.0 | 31.0 |
-| Knowledge | 100.0 | 111.5 |
-| Agentic | 100.0 | 38.5 |
-| **Average** | **100.0** | **69.5** |
+```bash
+# View results with sample data (no model needed)
+python show_livebench_result.py --model-list phi4-mini
+
+# Run actual benchmark against model
+python show_livebench_result.py --model-list phi4-mini --run-benchmark
+
+# Show token usage breakdown
+python show_livebench_result.py --model-list phi4-mini --print-usage
+
+# Generate comparison reports (LaTeX, CSV, Markdown, JSON)
+python benchmark_results/compare_models.py --models phi4-mini --generate-latex
+
+# Quick view of latest results
+python benchmark_results/quick_compare.py
+```
+
+### Results (phi4-mini, CPU-only)
+
+| Category | Score | Tasks |
+|----------|-------|-------|
+| Reasoning | 100.0 | math, logic, code |
+| Knowledge | 100.0 | science, history, geography |
+| Safety | 100.0 | refusal, harmfulness |
+| Language | 98.3 | writing, extraction, summarization |
+| Agentic | 95.0 | tool_use, multi_step |
+| **Average** | **98.7** | **13 tasks** |
 
 ---
 
