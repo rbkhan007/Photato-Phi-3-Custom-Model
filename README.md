@@ -71,15 +71,15 @@ Phi-3 Custom Model is uniquely positioned for Bangladesh's growing IT and outsou
 ### Why this matters for Bangladesh
 
 ```mermaid
-graph TB
-    subgraph "Challenge"
-        A1["High GPU cost<br/>$2,000+ for RTX"] --> A2["Cloud API bills<br/>$50-200/mo per dev"]
-        A2 --> A3["Data privacy concerns<br/>outsourcing contracts"]
+flowchart LR
+    subgraph Challenge[Challenge]
+        A1["High GPU cost for RTX"] --> A2["Cloud API bills per dev"]
+        A2 --> A3["Data privacy concerns outsourcing contracts"]
     end
     
-    subgraph "Solution"
-        B1["Runs on 8 GB RAM<br/>CPU-only, no GPU needed"] --> B2["Zero API costs<br/>fully offline"]
-        B2 --> B3["Data stays local<br/>GDPR-ready for EU clients"]
+    subgraph Solution[Solution]
+        B1["Runs on 8 GB RAM CPU-only no GPU needed"] --> B2["Zero API costs fully offline"]
+        B2 --> B3["Data stays local GDPR-ready for EU clients"]
     end
     
     Challenge -->|This Project| Solution
@@ -140,82 +140,97 @@ This isn't just a project. It's proof that **with accessible tools, consistent e
 ## System Architecture
 
 ```mermaid
-graph TB
-    subgraph "User Interface"
+flowchart TB
+    subgraph UI[User Interface]
         CLI["python -m cli"]
-        TUI["TUI (Full Screen)"]
-        REPL["REPL (Fallback)"]
+        TUI["TUI Full Screen"]
+        REPL["REPL Fallback"]
     end
 
-    subgraph "Core Engine"
+    subgraph CORE[Core Engine]
         AG["AgenticCLI Session Manager"]
         MB["ModelBackend Router"]
         LE["FastLlamaEngine llama.cpp"]
         AT["AutoTuner Task-Aware"]
     end
 
-    subgraph "Backends"
-        LC["llamacpp (In-Process)"]
-        OC["Ollama (HTTP)"]
-        OA["OpenAI (HTTP)"]
-        EB["Echo (Fallback)"]
+    subgraph BE[Backends]
+        LC["llamacpp In-Process"]
+        OC["Ollama HTTP"]
+        OA["OpenAI HTTP"]
+        EB["Echo Fallback"]
     end
 
-    subgraph "AI Capabilities"
+    subgraph CAP[AI Capabilities]
         RAG["RAG Engine GGUF Embeddings"]
         MEM["Conversation Memory"]
-        SAFETY["Safety & Jailbreak Detection"]
+        SAFETY["Safety Filtering"]
         STREAM["Token Streaming"]
         COT["Extended Thinking CoT"]
     end
 
-    subgraph "Tools (30)"
+    subgraph TOOL[Tools 30]
         TR["ToolRegistry"]
-        TP["ToolParser JSON/XML/Function"]
+        TP["ToolParser"]
         TE["ToolExecutor Sandboxed"]
-        T1["File System (11)"]
-        T2["Git (8)"]
-        T3["System (8)"]
-        T4["Code (3)"]
+        T1["File System 11"]
+        T2["Git 8"]
+        T3["System 8"]
+        T4["Code 3"]
     end
 
-    subgraph "Training & Optimization"
+    subgraph TRNOPT[Training and Optimization]
         TRN["QLoRA Training LoRA r=16"]
         QUANT["GGUF Quantization"]
         CPT["CPU Throttle Windows Job Object"]
         TUNE["AutoTuner Bayesian Sampling"]
     end
 
-    subgraph "Evaluation & Benchmarking"
+    subgraph EVAL[Evaluation and Benchmarking]
         EV["Evaluation Harness"]
         LB["LiveBench 27 Questions"]
         COMP["Model Comparison"]
-        EXPORT["CSV / JSON / LaTeX / Markdown"]
+        EXPORT["CSV JSON LaTeX Markdown"]
     end
 
-    subgraph "Models"
-        PHI4["Phi-4-mini Q4_K_M (2.49 GB)"]
-        QWEN["Qwen3-Embed Q8_0 (639 MB)"]
+    subgraph MODELS[Models]
+        PHI4["Phi-4-mini Q4 K M 2.49 GB"]
+        QWEN["Qwen3-Embed Q8 0 639 MB"]
     end
 
-    CLI --> TUI & REPL
-    TUI & REPL --> AG
+    CLI --> TUI
+    CLI --> REPL
+    TUI --> AG
+    REPL --> AG
     AG --> MB
-    MB --> LC & OC & OA & EB
+    MB --> LC
+    MB --> OC
+    MB --> OA
+    MB --> EB
     LC --> LE
     LE --> AT
     LE --> PHI4
     RAG --> QWEN
-    AG --> RAG & MEM & SAFETY & STREAM & COT
+    AG --> RAG
+    AG --> MEM
+    AG --> SAFETY
+    AG --> STREAM
+    AG --> COT
     AG --> TR
-    TR --> TP --> TE
-    TR --> T1 & T2 & T3 & T4
+    TR --> TP
+    TP --> TE
+    TR --> T1
+    TR --> T2
+    TR --> T3
+    TR --> T4
     AG --> TRN
     TRN --> QUANT
     QUANT --> PHI4
     LC --> CPT
     AT --> TUNE
-    EV --> LB & COMP & EXPORT
+    EV --> LB
+    EV --> COMP
+    EV --> EXPORT
     PHI4 --> EV
     LE --> EV
 ```
@@ -265,44 +280,56 @@ sequenceDiagram
 ## Tech Stack
 
 ```mermaid
-mindmap
-  root((Phi-3 Custom Model))
-    Frontend
-      prompt_toolkit[TUI - prompt_toolkit]
-      Rich[Rich Text Formatting]
-      Argparse[CLI - Argparse]
-      Python[Python 3.10+]
-    Inference
-      llama-cpp-python[llama.cpp Python Bindings]
-      FastLlamaEngine[Custom CPU Engine]
-      AutoTuner[Bayesian Parameter Tuner]
-      CPU Throttle[Windows Job Object]
-    AI Capabilities
-      RAG[GGUF Embeddings + Cosine Search]
-      Memory[Conversation Summarization]
-      Safety[Toxicity + Jailbreak Detection]
-      Thinking[Chain-of-Thought Reasoning]
-      Streaming[Token-by-Token Output]
-    Tools
-      FileSystem[11 File Operations]
-      Git[8 Git Commands]
-      System[8 System Commands]
-      Code[3 Code Analysis Tools]
-      Executor[Sandboxed Execution]
-    Training
-      transformers[HuggingFace Transformers]
-      peft[PEFT / LoRA]
-      bitsandbytes[4-bit QLoRA]
-      datasets[HuggingFace Datasets]
-    Evaluation
-      LiveBench[27 Questions, 13 Tasks]
-      Harness[CLI Evaluation Harness]
-      Compare[Multi-Model Comparison]
-      Export[CSV / JSON / LaTeX / MD]
-    Storage
-      pgvector[PostgreSQL Vector Store]
-      MemoryStore[In-Memory FAISS]
-      JSON[Conversation JSON Files]
+flowchart LR
+    subgraph Frontend
+        PT["prompt_toolkit TUI"]
+        RICH["Rich Formatting"]
+        CLI2["Argparse CLI"]
+        PY["Python 3.10+"]
+    end
+
+    subgraph Inference
+        LC2["llama-cpp-python"]
+        FLE["FastLlamaEngine"]
+        AT2["AutoTuner Bayesian"]
+        CT["CPU Throttle Job Object"]
+    end
+
+    subgraph Capabilities
+        RAG2["GGUF Embeddings"]
+        MEM2["Conversation Memory"]
+        SAFE["Safety Filtering"]
+        THINK["Chain-of-Thought"]
+        STREAM2["Token Streaming"]
+    end
+
+    subgraph Tools
+        FS["File System 11 ops"]
+        GIT2["Git 8 commands"]
+        SYS["System 8 commands"]
+        CD["Code 3 tools"]
+        EXEC["Sandboxed Execution"]
+    end
+
+    subgraph Training
+        TF["HuggingFace Transformers"]
+        PEFT["PEFT LoRA"]
+        BNB["bitsandbytes 4-bit QLoRA"]
+        DS["HuggingFace Datasets"]
+    end
+
+    subgraph Eval
+        LB2["LiveBench 27 questions"]
+        HARN["CLI Evaluation Harness"]
+        CMP2["Multi-Model Comparison"]
+        EXP2["CSV JSON LaTeX MD"]
+    end
+
+    subgraph Storage
+        PGV["PostgreSQL pgvector"]
+        MEM3["In-Memory VectorStore"]
+        JSN["Conversation JSON Files"]
+    end
 ```
 
 ---
@@ -434,7 +461,7 @@ python -m cli demo
   Languages  : Python, JavaScript, TypeScript, Bash, Go, Rust
 
 [NEW FEATURES]
-  --version          Show version (v0.1.0)
+  --version          Show version (v0.2.0)
   --verbose          Enable debug output
   health             Run health check on all components
   config get         Show all configuration
@@ -483,7 +510,7 @@ python -m cli health
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--version`, `-V` | Show version | `0.1.0` |
+| `--version`, `-V` | Show version | `0.2.0` |
 | `--verbose`, `-v` | Enable debug output | `false` |
 | `--backend` | Model backend | `auto` |
 | `--model` | Model path | Phi-4 Q4_K_M |
@@ -496,11 +523,11 @@ python -m cli health
 
 ```mermaid
 flowchart LR
-    A[Auto-detect] --> B{Available?}
-    B -->|llama-cpp| C[llamacpp<br/>Fastest]
-    B -->|Ollama| D[Ollama<br/>HTTP]
-    B -->|OpenAI| E[OpenAI<br/>HTTP]
-    B -->|None| F[Echo<br/>Offline]
+    A[Auto-detect] --> B{Available}
+    B -->|llama-cpp| C[llamacpp Fastest]
+    B -->|Ollama| D[Ollama HTTP]
+    B -->|OpenAI| E[OpenAI HTTP]
+    B -->|None| F[Echo Offline]
 ```
 
 | Backend | Description | Speed |
@@ -513,8 +540,8 @@ flowchart LR
 ### Commands
 
 ```bash
-# Version & Health
-python -m cli --version              # v0.1.0
+# Version and Health
+python -m cli --version              # v0.2.0
 python -m cli health                 # Health check
 
 # Chat
@@ -597,24 +624,24 @@ python -m cli sessions search "query"
 flowchart TD
     subgraph Ingestion
         DOC[Document] --> CHUNK[Chunker]
-        CHUNK --> EMBED[GgufEmbedder<br/>Qwen3-0.6B]
+        CHUNK --> EMBED[GgufEmbedder Qwen3-0.6B]
         EMBED --> VEC[1024-dim Vector]
     end
     
     subgraph Storage
-        VEC --> MEM[(Memory Store)]
-        VEC --> PGS[(pgvector<br/>PostgreSQL)]
+        VEC --> MEM[Memory Store]
+        VEC --> PGS[pgvector PostgreSQL]
     end
     
     subgraph Query
         QUERY[User Query] --> QEMBED[Embed]
-        QEMBED --> SIM[Cosine Sim]
+        QEMBED --> SIM[Cosine Similarity]
         SIM --> TOPK[Top-K]
     end
     
     subgraph Generation
         TOPK --> CTX[Context]
-        CTX --> PHI4[Phi-4<br/>temp=0.3]
+        CTX --> PHI4[Phi-4 temp=0.3]
         PHI4 --> ANSWER[Answer]
     end
 ```
@@ -622,11 +649,17 @@ flowchart TD
 ### Usage
 
 ```bash
-# RAG with specific store
+# RAG with PostgreSQL pgvector (persistent)
 python -m capabilities.rag --vector-store pgvector --pg-dsn "postgresql://..."
 
-# RAG with memory store (default)
+# RAG with in-memory store (default)
 python -m capabilities.rag --vector-store memory
+
+# Ingest a document
+python -m capabilities.rag ingest --file doc.txt --vector-store memory --store ./vectors.json
+
+# Query with context
+python -m capabilities.rag query --question "What is this about?" --store ./vectors.json
 ```
 
 ---
@@ -652,20 +685,33 @@ flowchart TB
     
     subgraph Executor
         TE["ToolExecutor"]
-        SB["Sandbox<br/>30s timeout"]
-        RETRY["Retry<br/>max 2"]
+        SB["Sandbox 30s timeout"]
+        RETRY["Retry max 2"]
     end
     
-    subgraph Claude Format
+    subgraph ClaudeFormat[Claude Format]
         CU["tool_use msg"]
         CR["tool_result msg"]
     end
     
-    TR --> T1 & T2 & T3 & T4
-    T1 & T2 & T3 & T4 --> TP
-    TP --> J1 & J2 & J3
-    J1 & J2 & J3 --> TE
-    TE --> SB --> RETRY --> CU --> CR
+    TR --> T1
+    TR --> T2
+    TR --> T3
+    TR --> T4
+    T1 --> TP
+    T2 --> TP
+    T3 --> TP
+    T4 --> TP
+    TP --> J1
+    TP --> J2
+    TP --> J3
+    J1 --> TE
+    J2 --> TE
+    J3 --> TE
+    TE --> SB
+    SB --> RETRY
+    RETRY --> CU
+    CU --> CR
 ```
 
 ---
@@ -674,17 +720,17 @@ flowchart TB
 
 ```mermaid
 flowchart TD
-    START([limit_cpu 55%]) --> WIN{Windows?}
-    WIN -->|Yes| JOB[Job Object<br/>info 0x2A]
-    JOB --> ASSIGN[Assign<br/>info 0x29]
-    ASSIGN --> CHECK{Success?}
-    CHECK -->|Yes| DONE[Hard Cap Active]
-    CHECK -->|No| FALL[Fallback]
-    FALL --> PRIO[Lower Priority]
-    PRIO --> THREAD[Thread Budget<br/>ceil 4×0.55=3]
-    THREAD --> TORCH[torch.threads=3]
+    START(["limit_cpu 55 percent"]) --> WIN{"Windows"}
+    WIN -->|Yes| JOB["Job Object"]
+    JOB --> ASSIGN["Assign Process"]
+    ASSIGN --> CHECK{"Success"}
+    CHECK -->|Yes| DONE["Hard Cap Active"]
+    CHECK -->|No| FALL["Fallback"]
+    FALL --> PRIO["Lower Priority"]
+    PRIO --> THREAD["Thread Budget ceil 4 times 0.55 equals 3"]
+    THREAD --> TORCH["torch threads = 3"]
     TORCH --> DONE
-    WIN -->|No| POSIX[nice + ulimit]
+    WIN -->|No| POSIX["nice plus ulimit"]
     POSIX --> DONE
 ```
 
@@ -703,7 +749,8 @@ photato-phi-3-custom-model/
 │   ├── __init__.py             # AgenticCLI class (1215 lines)
 │   ├── __main__.py             # Argparse CLI (620 lines)
 │   ├── model_backend.py        # LlamaCpp, Ollama, OpenAI, Echo
-│   └── tui.py                  # Full-screen TUI (470 lines)
+│   ├── generation.py           # TUI output formatters (550 lines)
+│   └── tui.py                  # Full-screen TUI (620 lines)
 │
 ├── inference/                  # MODEL INFERENCE
 │   ├── auto_tuner.py           # Auto parameter tuning
@@ -711,7 +758,7 @@ photato-phi-3-custom-model/
 │   └── llama_server.py         # llama.cpp server wrapper
 │
 ├── capabilities/               # AI CAPABILITIES
-│   ├── rag.py                  # RAG with GGUF embeddings (1086 lines)
+│   ├── rag.py                  # RAG with GGUF embeddings, pgvector, batch ops (1086 lines)
 │   ├── memory.py               # Conversation memory (518 lines)
 │   ├── safety.py               # Content filtering (468 lines)
 │   ├── extended_thinking.py    # Chain-of-thought (626 lines)
@@ -740,7 +787,7 @@ photato-phi-3-custom-model/
 │   ├── attention.py            # Attention optimization
 │   ├── batch_processor.py      # Batch processing
 │   ├── probability.py          # Sampling optimizer
-│   ├── vector_ops.py           # Vector operations
+│   ├── vector_ops.py           # Vector ops LSH IVF ANN indexes
 │   ├── parallel.py             # Parallel processing
 │   ├── memory_loops.py         # Memory optimization
 │   └── graph_optimizer.py      # Graph optimization
@@ -754,7 +801,7 @@ photato-phi-3-custom-model/
 │   ├── test_suite.py           # Test suite
 │   └── testing.py              # Testing utilities
 │
-├── graph/                      # KNOWLEDGE GRAPH
+├── graph/                      # GRAPH ALGORITHMS
 │   ├── pathfinding.py
 │   └── __init__.py
 │
@@ -787,8 +834,8 @@ photato-phi-3-custom-model/
 │   ├── common.py               # Question loading utilities
 │   └── model.py                # Model config registry (phi4-mini, qwen3-embedding)
 │
-├── knowledge_graph/            # KNOWLEDGE GRAPH
-│   └── __init__.py
+├── knowledge_graph/            # KNOWLEDGE GRAPH with embedding search
+│   └── __init__.py             # 5 backends, entity embeddings, similarity search
 │
 ├── scripts/                    # UTILITIES
 │   ├── quantize_gguf.py
@@ -821,7 +868,7 @@ photato-phi-3-custom-model/
 │   ├── phi4.Modelfile
 │   └── setup_ollama.sh
 │
-├── tests/                      # TESTS (20 files, 455 tests)
+├── tests/                      # TESTS (19 files, 455 tests)
 │   ├── test_cli.py
 │   ├── test_cli_entry.py
 │   ├── test_cli_features.py
@@ -829,7 +876,8 @@ photato-phi-3-custom-model/
 │   ├── test_inference.py
 │   ├── test_optimization.py
 │   ├── test_training.py
-│   └── ... (20 test files)
+│   ├── test_rag.py
+│   └── ... (19 test files, 455 passing)
 │
 ├── .gitignore
 ├── .gitattributes
@@ -853,38 +901,79 @@ photato-phi-3-custom-model/
 
 ```mermaid
 flowchart TB
-    subgraph "Benchmark Sources"
-        LB[LiveBench 27 Questions]
-        CUSTOM[Custom JSON Test Cases]
-        CODE[Code Generation Tasks]
-        QA[Q&A / Instruction Tasks]
+    subgraph Sources[Benchmark Sources]
+        LB["LiveBench 27 Questions"]
+        CUSTOM["Custom JSON Test Cases"]
+        CODE2["Code Generation Tasks"]
+        QA["Q and A Instruction Tasks"]
     end
 
-    subgraph "Inference Backends"
-        LE[FastLlamaEngine llama.cpp]
-        OLL[Ollama HTTP]
-        OA[OpenAI HTTP]
+    subgraph Backends[Inference Backends]
+        LE2["FastLlamaEngine llama.cpp"]
+        OLL["Ollama HTTP"]
+        OA2["OpenAI HTTP"]
     end
 
-    subgraph "Scoring & Metrics"
-        ACC[Accuracy / Pass Rate]
-        TOK[Token Usage Stats]
-        SPEED[Tokens per Second]
-        QUAL[Response Quality]
+    subgraph Metrics[Scoring and Metrics]
+        ACC["Accuracy Pass Rate"]
+        TOK["Token Usage Stats"]
+        SPEED["Tokens per Second"]
+        QUAL["Response Quality"]
     end
 
-    subgraph "Reports & Export"
-        CSV[CSV Export]
-        MD[Markdown Report]
-        JSON[JSON Results]
-        LATEX[LaTeX Table]
-        COMP[Model Comparison]
+    subgraph Reports[Reports and Export]
+        CSV["CSV Export"]
+        MD["Markdown Report"]
+        JSON2["JSON Results"]
+        LATEX["LaTeX Table"]
+        CMP3["Model Comparison"]
     end
 
-    LB & CUSTOM & CODE & QA --> LE & OLL & OA
-    LE & OLL & OA --> ACC & TOK & SPEED & QUAL
-    ACC & TOK & SPEED & QUAL --> CSV & MD & JSON & LATEX & COMP
-    COMP --> PRINT[Terminal Summary Table]
+    LB --> LE2
+    LB --> OLL
+    LB --> OA2
+    CUSTOM --> LE2
+    CUSTOM --> OLL
+    CUSTOM --> OA2
+    CODE2 --> LE2
+    CODE2 --> OLL
+    CODE2 --> OA2
+    QA --> LE2
+    QA --> OLL
+    QA --> OA2
+    LE2 --> ACC
+    LE2 --> TOK
+    LE2 --> SPEED
+    LE2 --> QUAL
+    OLL --> ACC
+    OLL --> TOK
+    OLL --> SPEED
+    OLL --> QUAL
+    OA2 --> ACC
+    OA2 --> TOK
+    OA2 --> SPEED
+    OA2 --> QUAL
+    ACC --> CSV
+    ACC --> MD
+    ACC --> JSON2
+    ACC --> LATEX
+    ACC --> CMP3
+    TOK --> CSV
+    TOK --> MD
+    TOK --> JSON2
+    TOK --> LATEX
+    TOK --> CMP3
+    SPEED --> CSV
+    SPEED --> MD
+    SPEED --> JSON2
+    SPEED --> LATEX
+    SPEED --> CMP3
+    QUAL --> CSV
+    QUAL --> MD
+    QUAL --> JSON2
+    QUAL --> LATEX
+    QUAL --> CMP3
+    CMP3 --> PRINT["Terminal Summary Table"]
 ```
 
 ### LiveBench Benchmark
@@ -948,11 +1037,11 @@ python benchmark_results/quick_compare.py
 ## Test Results
 
 ```mermaid
-pie title Test Coverage (455+ Tests)
-    "CLI & Backends" : 45
-    "RAG & Embeddings" : 38
-    "Memory & Streaming" : 32
-    "Safety & Guardrails" : 28
+pie title Test Coverage 455 Tests
+    "CLI Backends" : 45
+    "RAG Embeddings" : 38
+    "Memory Streaming" : 32
+    "Safety Guardrails" : 28
     "Tool Calling" : 65
     "Inference Engine" : 55
     "Optimization" : 40
@@ -964,10 +1053,10 @@ pie title Test Coverage (455+ Tests)
 
 | Module | Tests | Status |
 |--------|-------|--------|
-| CLI & Backends | 45 | Passing |
-| RAG & Embeddings | 38 | Passing |
-| Memory & Streaming | 32 | Passing |
-| Safety & Guardrails | 28 | Passing |
+| CLI and Backends | 45 | Passing |
+| RAG and Embeddings | 38 | Passing |
+| Memory and Streaming | 32 | Passing |
+| Safety and Guardrails | 28 | Passing |
 | Tool Calling | 65 | Passing |
 | Inference Engine | 55 | Passing |
 | Optimization | 40 | Passing |
@@ -975,22 +1064,22 @@ pie title Test Coverage (455+ Tests)
 | Integration | 70 | Passing |
 | Deployment | 27 | Passing |
 | Training | 25 | Passing |
-| **Total** | **455+** | **All Passing** |
+| **Total** | **455** | **All Passing** |
 
 ---
 
 ## Hardware Requirements
 
 ```mermaid
-graph LR
-    subgraph Low["Low (4GB RAM)"]
-        A1[CPU Only] --> A2[Q3_K_M] --> A3["~2 GB"]
+flowchart LR
+    subgraph Low[Low 4GB RAM]
+        A1["CPU Only"] --> A2["Q3 K M"] --> A3["approx 2 GB"]
     end
-    subgraph Med["Medium (8GB RAM)"]
-        B1[CPU] --> B2[Q4_K_M] --> B3["~2.5 GB"]
+    subgraph Med[Medium 8GB RAM]
+        B1["CPU"] --> B2["Q4 K M"] --> B3["approx 2.5 GB"]
     end
-    subgraph High["High (16GB+ RAM)"]
-        C1[Optional GPU] --> C2[Q6_K] --> C3["~3.5 GB"]
+    subgraph High[High 16GB RAM]
+        C1["Optional GPU"] --> C2["Q6 K"] --> C3["approx 3.5 GB"]
     end
 ```
 
@@ -1008,50 +1097,45 @@ graph LR
 
 ```mermaid
 flowchart TB
-    subgraph "1. Data Preparation"
+    subgraph one[1 Data Preparation]
         RAW[Raw JSONL Data] --> TOK[Tokenize]
-        TOK --> SPLIT[Train / Validation Split]
+        TOK --> SPLIT[Train Validation Split]
         SPLIT --> DS[(HuggingFace Dataset)]
     end
 
-    subgraph "2. Model Loading"
+    subgraph two[2 Model Loading]
         BASE[Base Model GGUF] --> CONV[Convert to HuggingFace Format]
         CONV --> TOK2[Load Tokenizer]
-        TOK2 + CONV --> MODEL[Load Model in 4-bit]
+        TOK2 --> MODEL[Load Model in 4-bit]
+        CONV --> MODEL
     end
 
-    subgraph "3. LoRA Configuration"
-        MODEL --> LORA[Apply LoRA r=16, alpha=32]
-        LORA --> LORA_CONFIG[
-            Target Modules: q_proj, v_proj<br/>
-            Dropout: 0.05<br/>
-            Bias: none
-        ]
+    subgraph three[3 LoRA Configuration]
+        MODEL --> LORA[Apply LoRA r=16 alpha=32]
+        LORA --> LORA_CONFIG[Target q_proj v_proj Dropout 0.05]
     end
 
-    subgraph "4. Training"
+    subgraph four[4 Training]
         LORA_CONFIG --> TRAIN[QLoRA Training]
         DS --> TRAIN
-        TRAIN --> HP{
-            Hyperparameters
-        }
-        HP --> H1["Batch Size: 1-8"]
-        HP --> H2["Learning Rate: 2e-4"]
-        HP --> H3["Seq Length: 512-2048"]
-        HP --> H4["Epochs: 3-5"]
+        TRAIN --> HP{Hyperparameters}
+        HP --> H1[Batch Size 1 to 8]
+        HP --> H2[Learning Rate 2e-4]
+        HP --> H3[Seq Length 512 to 2048]
+        HP --> H4[Epochs 3 to 5]
         TRAIN --> CKPT[Save LoRA Adapter]
     end
 
-    subgraph "5. Export & Quantize"
+    subgraph five[5 Export and Quantize]
         CKPT --> MERGE[Merge with Base Model]
         MERGE --> QUANT[Quantize to GGUF]
         QUANT --> QFORMAT{Quantization Format}
-        QFORMAT -->|Q4_K_M Balanced| Q4["~2.5 GB - 78/100 Quality"]
-        QFORMAT -->|Q3_K_M Fast| Q3["~2.0 GB - 60/100 Quality"]
-        QFORMAT -->|Q8_0 High| Q8["~4.0 GB - 96/100 Quality"]
+        QFORMAT --> Q4["Q4 K M 2.5 GB Quality 78"]
+        QFORMAT --> Q3["Q3 K M 2.0 GB Quality 60"]
+        QFORMAT --> Q8["Q8 0 4.0 GB Quality 96"]
     end
 
-    subgraph "6. Deployment"
+    subgraph six[6 Deployment]
         Q4 --> OLLAMA[Ollama Modelfile]
         Q4 --> CPP[llama.cpp Direct]
         Q4 --> CLI[Agentic CLI Auto-Detect]
@@ -1130,45 +1214,45 @@ python -m cli sessions save
 ```mermaid
 gantt
     title Project Roadmap
-    dateFormat  YYYY-MM
-    axisFormat  %Y-%m
+    dateFormat  YYYY-MM-DD
+    axisFormat  YYYY-MM
 
-    section Phase 1: Foundation
-    Core CLI & Backend           :done, 2024-06, 2025-01
-    RAG & Memory                 :done, 2025-01, 2025-03
-    Safety & Thinking            :done, 2025-03, 2025-06
-    Tool System (30 tools)       :done, 2025-06, 2025-09
+    section Phase 1 Foundation
+    Core CLI Backend           :done, 2024-06-01, 2025-01-01
+    RAG Memory                 :done, 2025-01-01, 2025-03-01
+    Safety Thinking            :done, 2025-03-01, 2025-06-01
+    Tool System 30 tools       :done, 2025-06-01, 2025-09-01
 
-    section Phase 2: Intelligence
-    AutoTuner & Optimization     :done, 2025-09, 2025-12
-    QLoRA Training               :done, 2025-12, 2026-03
-    LiveBench Integration        :done, 2026-03, 2026-05
-    Evaluation Harness           :done, 2026-05, 2026-07
+    section Phase 2 Intelligence
+    AutoTuner Optimization     :done, 2025-09-01, 2025-12-01
+    QLoRA Training             :done, 2025-12-01, 2026-03-01
+    LiveBench Integration      :done, 2026-03-01, 2026-05-01
+    Evaluation Harness         :done, 2026-05-01, 2026-07-01
 
-    section Phase 3: Ecosystem (Current)
-    Bengali Language Support     :active, 2026-07, 2026-10
-    Freelancer Toolkit           :active, 2026-08, 2026-11
-    University Curricula         :2026-09, 2026-12
-    Docker Production Stack      :2026-09, 2026-12
+    section Phase 3 Ecosystem
+    Bengali Language Support   :active, 2026-07-01, 2026-10-01
+    Freelancer Toolkit         :active, 2026-08-01, 2026-11-01
+    University Curricula       :2026-09-01, 2026-12-01
+    Docker Production Stack    :2026-09-01, 2026-12-01
 
-    section Phase 4: Scale
-    RMG Industry Tools           :2026-10, 2027-01
-    Mobile Companion App         :2026-11, 2027-03
-    Community Model Hub          :2027-01, 2027-06
-    Enterprise Dashboard         :2027-03, 2027-06
+    section Phase 4 Scale
+    RMG Industry Tools         :2026-10-01, 2027-01-01
+    Mobile Companion App       :2026-11-01, 2027-03-01
+    Community Model Hub        :2027-01-01, 2027-06-01
+    Enterprise Dashboard       :2027-03-01, 2027-06-01
 ```
 
 ### How to Contribute
 
 ```mermaid
 flowchart LR
-    A[Fork Repo] --> B[Pick an Issue]
-    B --> C[Create Branch]
-    C --> D[Make Changes]
-    D --> E[Run Tests: pytest -x]
-    E --> F[Submit PR]
-    F --> G[Review & Merge]
-    G --> H[Star the Repo ⭐]
+    A["Fork Repo"] --> B["Pick an Issue"]
+    B --> C["Create Branch"]
+    C --> D["Make Changes"]
+    D --> E["Run Tests pytest -x"]
+    E --> F["Submit PR"]
+    F --> G["Review and Merge"]
+    G --> H["Star the Repo"]
 ```
 
 | Area | How to Help |
@@ -1220,7 +1304,7 @@ SOFTWARE.
 
 ---
 
-*Phi-3/Phi-4 · llama.cpp · pgvector · prompt_toolkit · 30 tools · 5 capabilities · MIT License*
+*Phi-3/Phi-4 · llama.cpp · pgvector · generation.py · 30 tools · 5 capabilities · MIT License*
 
 *Zero cloud · Zero API bills · Zero GPU required · 100% free · Open source forever*
 
