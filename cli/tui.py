@@ -39,7 +39,7 @@ class TUI:
             [
                 "/help", "/status", "/system", "/clear", "/new",
                 "/model", "/backend", "/cpu", "/json", "/exit",
-                "/quit",
+                "/quit", "/time",
                 "list", "read", "write", "search", "run-code",
                 "exec", "git-status", "git-commit", "git-diff",
                 "git-log", "git-branch", "git-checkout", "git-pull",
@@ -47,6 +47,23 @@ class TUI:
                 "mkdir", "rmdir", "copy", "move", "delete",
                 "exists", "disk", "env", "set-env", "cwd",
                 "cd", "os", "processes",
+                # Shell & Terminal
+                "powershell", "terminal", "shells",
+                "ps", "pwsh", "cmd", "shell",
+                # Windows Services
+                "services", "service",
+                # Processes
+                "kill", "run", "start",
+                # Registry
+                "registry", "reg",
+                # Event Log
+                "events", "eventlog",
+                # Network
+                "network", "ping", "netstat",
+                # Tasks
+                "tasks", "scheduled-tasks",
+                # System
+                "winver", "drives", "disks",
             ],
             ignore_case=True,
         )

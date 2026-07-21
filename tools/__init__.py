@@ -6,6 +6,7 @@ Provides complete tool calling infrastructure:
 - Tool parser for extracting tool calls from model output
 - Tool executor for running tool calls safely
 - Claude-compatible API format for tool_use and tool_result
+- Shell tools for terminal, PowerShell, and Windows system control
 
 Compatible with Claude's tool_use API format.
 """
@@ -25,3 +26,6 @@ from .claude_compatible import (
     create_tool_use_message,
     create_tool_result_message,
 )
+from . import powershell_tool
+from . import terminal_tool
+from . import windows_tools

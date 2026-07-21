@@ -134,6 +134,62 @@ def _dispatch(cli: AgenticCLI, args: argparse.Namespace) -> int:
         return _config_cmd(cli, args)
     elif cmd == "sessions":
         return _sessions_cmd(cli, args)
+    
+    # ── Shell & Terminal ──
+    elif cmd == "powershell":
+        command = " ".join(args.command) if args.command else ""
+        call = cli.execute_tool("run_powershell", command=command, timeout=args.timeout, working_dir=args.working_dir)
+    elif cmd == "terminal":
+        command = " ".join(args.command) if args.command else ""
+        call = cli.execute_tool("run_terminal", command=command, timeout=args.timeout, shell=args.shell, working_dir=args.working_dir)
+    elif cmd == "shells":
+        call = cli.execute_tool("get_available_shells")
+    
+    # ── Windows Services ──
+    elif cmd == "services":
+        call = cli.execute_tool("list_services")
+    elif cmd == "service":
+        if args.action == "get":
+            call = cli.execute_tool("get_service", name=args.name)
+        elif args.action == "start":
+            call = cli.execute_tool("start_service", name=args.name)
+        elif args.action == "stop":
+            call = cli.execute_tool("stop_service", name=args.name)
+        elif args.action == "restart":
+            call = cli.execute_tool("restart_service", name=args.name)
+        else:
+            call = cli.execute_tool("get_service", name=args.name)
+    
+    # ── Processes ──
+    elif cmd == "kill":
+        call = cli.execute_tool("kill_process", name_or_pid=args.name_or_pid)
+    elif cmd == "run":
+        call = cli.execute_tool("start_process", path=args.path, arguments=" ".join(args.args))
+    
+    # ── Registry ──
+    elif cmd == "registry":
+        call = cli.execute_tool("read_registry", key=args.key, value=args.value)
+    
+    # ── Event Log ──
+    elif cmd == "events":
+        call = cli.execute_tool("get_event_log", log_name=args.log, max_events=args.max, level=args.level)
+    
+    # ── Network ──
+    elif cmd == "network":
+        call = cli.execute_tool("get_network_config")
+    elif cmd == "ping":
+        call = cli.execute_tool("test_network", target=args.target)
+    
+    # ── Scheduled Tasks ──
+    elif cmd == "tasks":
+        call = cli.execute_tool("list_scheduled_tasks", folder=args.folder)
+    
+    # ── Windows System ──
+    elif cmd == "winver":
+        call = cli.execute_tool("get_windows_system_info")
+    elif cmd == "drives":
+        call = cli.execute_tool("get_disk_info")
+    
     else:
         print(f"Unknown command: {cmd}", file=sys.stderr)
         return 2
@@ -230,6 +286,27 @@ def _repl(cli: AgenticCLI, as_json: bool, beginner: bool = False) -> int:
         "history": "git-log",
         "diff": "git-diff",
         "changes": "git-diff",
+        # Shell & Terminal aliases
+        "ps": "powershell",
+        "pwsh": "powershell",
+        "ps1": "powershell",
+        "script": "powershell",
+        "win-shell": "terminal",
+        "command": "terminal",
+        "svc": "services",
+        "stop": "kill",
+        "end": "kill",
+        "terminate": "kill",
+        "launch": "run",
+        "execute": "exec",
+        "cmd": "exec",
+        "shell": "exec",
+        "network": "network",
+        "ip": "network",
+        "wifi": "network",
+        "net": "network",
+        "reg": "registry",
+        "date": "time",
     }
 
     try:
@@ -692,6 +769,58 @@ def _build_parser() -> argparse.ArgumentParser:
     sub.add_parser("health", help="Run health check on all components.", parents=[common])
     sub.add_parser("repl", help="Start an interactive REPL.", parents=[common])
     sub.add_parser("demo", help="Print a capability overview.", parents=[common])
+
+    # ── Shell & Terminal Commands ──
+    p = sub.add_parser("powershell", help="Execute a PowerShell command or script.", parents=[common])
+    p.add_argument("command", nargs="*", help="PowerShell command to execute")
+    p.add_argument("--timeout", type=int, default=60, help="Max execution time in seconds")
+    p.add_argument("--working-dir", help="Working directory")
+
+    p = sub.add_parser("terminal", help="Execute a terminal command.", parents=[common])
+    p.add_argument("command", nargs="*", help="Command to execute")
+    p.add_argument("--timeout", type=int, default=120, help="Max execution time in seconds")
+    p.add_argument("--shell", choices=["powershell", "cmd", "bash", "auto"], default="auto", help="Shell to use")
+    p.add_argument("--working-dir", help="Working directory")
+
+    sub.add_parser("shells", help="Detect available shells on the system.", parents=[common])
+
+    # ── Windows Service Commands ──
+    sub.add_parser("services", help="List Windows services.", parents=[common])
+    p = sub.add_parser("service", help="Manage a Windows service.", parents=[common])
+    p.add_argument("action", choices=["get", "start", "stop", "restart"])
+    p.add_argument("name", help="Service name")
+
+    # ── Process Commands ──
+    p = sub.add_parser("kill", help="Kill a process by name or PID.", parents=[common])
+    p.add_argument("name_or_pid", help="Process name (e.g., notepad.exe) or PID")
+
+    p = sub.add_parser("run", help="Start a new process.", parents=[common])
+    p.add_argument("path", help="Path to executable")
+    p.add_argument("args", nargs="*", help="Command-line arguments")
+
+    # ── Windows Registry ──
+    p = sub.add_parser("registry", help="Read a Windows Registry key.", parents=[common])
+    p.add_argument("key", help="Registry path (e.g., HKLM:\\Software\\Microsoft)")
+    p.add_argument("--value", help="Specific value name")
+
+    # ── Event Log ──
+    p = sub.add_parser("events", help="Read Windows Event Log.", parents=[common])
+    p.add_argument("--log", default="System", help="Log name (System, Application, Security)")
+    p.add_argument("--max", type=int, default=20, help="Maximum entries")
+    p.add_argument("--level", choices=["Error", "Warning", "Information"], help="Filter by level")
+
+    # ── Network ──
+    sub.add_parser("network", help="Show network configuration.", parents=[common])
+    p = sub.add_parser("ping", help="Test network connectivity.", parents=[common])
+    p.add_argument("target", nargs="?", default="8.8.8.8", help="Hostname or IP to ping")
+
+    # ── Scheduled Tasks ──
+    p = sub.add_parser("tasks", help="List Windows Scheduled Tasks.", parents=[common])
+    p.add_argument("--folder", default="\\", help="Task folder path")
+
+    # ── Windows System ──
+    sub.add_parser("winver", help="Show Windows version information.", parents=[common])
+    sub.add_parser("drives", help="Show disk/drive information.", parents=[common])
 
     return parser
 

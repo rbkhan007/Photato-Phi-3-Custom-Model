@@ -565,6 +565,29 @@ class AgenticCLI:
             "get_process_list": self._get_process_list,
             "get_datetime": self._get_system_datetime,
             "get_system_info": self._get_system_info,
+            # Shell & Terminal Tools
+            "run_powershell": self._run_powershell_wrapper,
+            "run_terminal": self._run_terminal_wrapper,
+            "stream_terminal": self._stream_terminal_wrapper,
+            # Windows System Control Tools
+            "list_services": self._list_services,
+            "get_service": self._get_service,
+            "start_service": self._start_service,
+            "stop_service": self._stop_service,
+            "restart_service": self._restart_service,
+            "kill_process": self._kill_process,
+            "start_process": self._start_process,
+            "read_registry": self._read_registry,
+            "write_registry": self._write_registry,
+            "get_event_log": self._get_event_log,
+            "get_network_config": self._get_network_config,
+            "test_network": self._test_network,
+            "list_scheduled_tasks": self._list_scheduled_tasks,
+            "check_windows_updates": self._check_windows_updates,
+            "get_windows_system_info": self._get_windows_system_info,
+            "get_disk_info": self._get_disk_info,
+            "get_ps_version": self._get_ps_version,
+            "get_available_shells": self._get_available_shells,
         }
 
     def _setup_capabilities(self):
@@ -991,6 +1014,212 @@ class AgenticCLI:
             return {"success": True, "system_info": info}
         except Exception as e:
             return {"success": False, "error": str(e)}
+
+    # ── Shell & Terminal Tool Wrappers ──
+
+    def _run_powershell_wrapper(self, command: str, working_dir: str = None, timeout: int = 60) -> dict:
+        """Execute a PowerShell command or script.
+        
+        Args:
+            command: PowerShell command or path to .ps1 file
+            working_dir: Working directory (default: current)
+            timeout: Max execution time in seconds (default: 60)
+        """
+        from tools.powershell_tool import run_powershell
+        return run_powershell(command=command, working_dir=working_dir, timeout=timeout)
+
+    def _run_terminal_wrapper(self, command: str, working_dir: str = None, timeout: int = 120, shell: str = "auto") -> dict:
+        """Execute a terminal command.
+        
+        Args:
+            command: Command to execute
+            working_dir: Working directory (default: current)
+            timeout: Max execution time in seconds (default: 120)
+            shell: Shell to use (powershell, cmd, bash, auto)
+        """
+        from tools.terminal_tool import run_terminal
+        return run_terminal(command=command, working_dir=working_dir, timeout=timeout, shell=shell)
+
+    def _stream_terminal_wrapper(self, command: str, working_dir: str = None, timeout: int = 120, shell: str = "auto") -> dict:
+        """Execute a terminal command and stream output.
+        
+        Args:
+            command: Command to execute
+            working_dir: Working directory (default: current)
+            timeout: Max execution time in seconds (default: 120)
+            shell: Shell to use (powershell, cmd, bash, auto)
+        """
+        from tools.terminal_tool import stream_terminal
+        output_lines = []
+        final = {"success": False, "output": "", "exit_code": -1}
+        for line_or_result in stream_terminal(command=command, working_dir=working_dir, timeout=timeout, shell=shell):
+            if isinstance(line_or_result, str):
+                output_lines.append(line_or_result)
+            else:
+                final = line_or_result
+        final["output_lines"] = output_lines
+        return final
+
+    def _get_ps_version(self) -> dict:
+        """Get installed PowerShell version."""
+        from tools.powershell_tool import get_powershell_version
+        return get_powershell_version()
+
+    def _get_available_shells(self) -> dict:
+        """Detect available shells on the system."""
+        from tools.terminal_tool import get_available_shells
+        return get_available_shells()
+
+    # ── Windows Service Management ──
+
+    def _list_services(self, status: str = None) -> dict:
+        """List Windows services.
+        
+        Args:
+            status: Filter by status (Running, Stopped, or None for all)
+        """
+        from tools.windows_tools import list_services
+        return list_services(status=status)
+
+    def _get_service(self, name: str) -> dict:
+        """Get details of a specific Windows service.
+        
+        Args:
+            name: Service name
+        """
+        from tools.windows_tools import get_service
+        return get_service(name=name)
+
+    def _start_service(self, name: str) -> dict:
+        """Start a Windows service.
+        
+        Args:
+            name: Service name
+        """
+        from tools.windows_tools import start_service
+        return start_service(name=name)
+
+    def _stop_service(self, name: str) -> dict:
+        """Stop a Windows service.
+        
+        Args:
+            name: Service name
+        """
+        from tools.windows_tools import stop_service
+        return stop_service(name=name)
+
+    def _restart_service(self, name: str) -> dict:
+        """Restart a Windows service.
+        
+        Args:
+            name: Service name
+        """
+        from tools.windows_tools import restart_service
+        return restart_service(name=name)
+
+    # ── Process Management ──
+
+    def _kill_process(self, name_or_pid: str) -> dict:
+        """Kill a process by name or PID.
+        
+        Args:
+            name_or_pid: Process name (e.g., notepad.exe) or PID number
+        """
+        from tools.windows_tools import kill_process
+        return kill_process(name_or_pid=name_or_pid)
+
+    def _start_process(self, path: str, arguments: str = "") -> dict:
+        """Start a new process.
+        
+        Args:
+            path: Path to executable
+            arguments: Command-line arguments
+        """
+        from tools.windows_tools import start_process
+        return start_process(path=path, arguments=arguments)
+
+    # ── Windows Registry ──
+
+    def _read_registry(self, key: str, value: str = None) -> dict:
+        """Read a Windows Registry key or value.
+        
+        Args:
+            key: Registry path (e.g., HKLM:\\Software\\Microsoft)
+            value: Specific value name (None = list all values)
+        """
+        from tools.windows_tools import read_registry
+        return read_registry(key=key, value=value)
+
+    def _write_registry(self, key: str, name: str, value: str, type: str = "String") -> dict:
+        """Write a value to the Windows Registry.
+        
+        Args:
+            key: Registry path
+            name: Value name
+            value: Value data
+            type: Value type (String, DWord, QWord, etc.)
+        """
+        from tools.windows_tools import write_registry
+        return write_registry(key=key, name=name, value=value, type=type)
+
+    # ── Event Log ──
+
+    def _get_event_log(self, log_name: str = "System", max_events: int = 50, level: str = None) -> dict:
+        """Read Windows Event Log entries.
+        
+        Args:
+            log_name: Log name (System, Application, Security, PowerShell)
+            max_events: Maximum entries to return (default: 50)
+            level: Filter by level (Error, Warning, Information)
+        """
+        from tools.windows_tools import get_event_log
+        return get_event_log(log_name=log_name, max_events=max_events, level=level)
+
+    # ── Network ──
+
+    def _get_network_config(self) -> dict:
+        """Get network configuration information."""
+        from tools.windows_tools import get_network_config
+        return get_network_config()
+
+    def _test_network(self, target: str = "8.8.8.8") -> dict:
+        """Test network connectivity (ping).
+        
+        Args:
+            target: Hostname or IP to ping (default: 8.8.8.8)
+        """
+        from tools.windows_tools import test_network
+        return test_network(target=target)
+
+    # ── Scheduled Tasks ──
+
+    def _list_scheduled_tasks(self, folder: str = "\\") -> dict:
+        """List Windows Scheduled Tasks.
+        
+        Args:
+            folder: Task folder path (e.g., \\Microsoft\\Windows\\)
+        """
+        from tools.windows_tools import list_scheduled_tasks
+        return list_scheduled_tasks(folder=folder)
+
+    # ── Windows Updates ──
+
+    def _check_windows_updates(self) -> dict:
+        """Check for available Windows Updates."""
+        from tools.windows_tools import check_windows_updates
+        return check_windows_updates()
+
+    # ── System Info ──
+
+    def _get_windows_system_info(self) -> dict:
+        """Get comprehensive Windows system information."""
+        from tools.windows_tools import get_windows_system_info
+        return get_windows_system_info()
+
+    def _get_disk_info(self) -> dict:
+        """Get disk/drive information."""
+        from tools.windows_tools import get_disk_info
+        return get_disk_info()
 
     def _get_process_list(self) -> dict:
         """Get running processes."""
