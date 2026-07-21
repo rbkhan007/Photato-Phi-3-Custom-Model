@@ -124,7 +124,13 @@ class AgenticCLI:
             "openai_base_url": "http://localhost:8080/v1",
             "temperature": 0.7,
             "max_tokens": 1024,
-            "system_prompt": "You are a helpful agentic coding assistant.",
+            "system_prompt": (
+                "You are a helpful AI assistant running on the user's computer. "
+                "You have access to real-time system information including the current date and time. "
+                "You can help with coding, answer questions, and perform tasks. "
+                "Always be helpful, accurate, and friendly. "
+                "When asked about the current date/time, use the system information provided."
+            ),
         }
         path = self._paths()["config"]
         try:
@@ -340,8 +346,21 @@ class AgenticCLI:
         self.send(content)
         messages = []
         system_prompt = self.config.get("system_prompt")
+        
+        # Add real-time system info to system prompt
+        from datetime import datetime
+        now = datetime.now()
+        system_info = (
+            f"\n\n[SYSTEM INFORMATION - Real-time]\n"
+            f"Current Date: {now.strftime('%Y-%m-%d')} ({now.strftime('%A')})\n"
+            f"Current Time: {now.strftime('%H:%M:%S')}\n"
+            f"Platform: {platform.system()} {platform.version()}\n"
+            f"Working Directory: {self.working_dir}\n"
+            f"Use this information when answering questions about date, time, or system status."
+        )
+        
         if system_prompt:
-            messages.append({"role": "system", "content": system_prompt + rag_context})
+            messages.append({"role": "system", "content": system_prompt + system_info + rag_context})
         for m in self.session.messages[-20:]:
             if m.role in (MessageRole.USER, MessageRole.ASSISTANT):
                 messages.append({"role": m.role.value, "content": m.content})
@@ -408,8 +427,21 @@ class AgenticCLI:
         self.send(content)
         messages = []
         system_prompt = self.config.get("system_prompt")
+        
+        # Add real-time system info to system prompt
+        from datetime import datetime
+        now = datetime.now()
+        system_info = (
+            f"\n\n[SYSTEM INFORMATION - Real-time]\n"
+            f"Current Date: {now.strftime('%Y-%m-%d')} ({now.strftime('%A')})\n"
+            f"Current Time: {now.strftime('%H:%M:%S')}\n"
+            f"Platform: {platform.system()} {platform.version()}\n"
+            f"Working Directory: {self.working_dir}\n"
+            f"Use this information when answering questions about date, time, or system status."
+        )
+        
         if system_prompt:
-            messages.append({"role": "system", "content": system_prompt + rag_context})
+            messages.append({"role": "system", "content": system_prompt + system_info + rag_context})
         for m in self.session.messages[-20:]:
             if m.role in (MessageRole.USER, MessageRole.ASSISTANT):
                 messages.append({"role": m.role.value, "content": m.content})
@@ -531,6 +563,8 @@ class AgenticCLI:
             "set_cwd": self._set_cwd,
             "get_os_info": self._get_os_info,
             "get_process_list": self._get_process_list,
+            "get_datetime": self._get_system_datetime,
+            "get_system_info": self._get_system_info,
         }
 
     def _setup_capabilities(self):
@@ -906,6 +940,55 @@ class AgenticCLI:
             except ImportError:
                 pass
             return {"success": True, "os_info": info}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _get_system_datetime(self) -> dict:
+        """Get current date and time from the OS."""
+        try:
+            from datetime import datetime
+            now = datetime.now()
+            return {
+                "success": True,
+                "datetime": now.strftime("%Y-%m-%d %H:%M:%S"),
+                "date": now.strftime("%Y-%m-%d"),
+                "time": now.strftime("%H:%M:%S"),
+                "day_of_week": now.strftime("%A"),
+                "timestamp": now.timestamp(),
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _get_system_info(self) -> dict:
+        """Get comprehensive real-time system information."""
+        try:
+            import platform
+            from datetime import datetime
+            
+            info = {
+                "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "date": datetime.now().strftime("%Y-%m-%d"),
+                "time": datetime.now().strftime("%H:%M:%S"),
+                "day_of_week": datetime.now().strftime("%A"),
+                "os": platform.system(),
+                "os_version": platform.version(),
+                "hostname": platform.node(),
+                "python_version": platform.python_version(),
+            }
+            
+            # Add CPU/RAM info if psutil is available
+            try:
+                import psutil
+                info["cpu_percent"] = psutil.cpu_percent(interval=0.1)
+                info["cpu_count"] = psutil.cpu_count()
+                mem = psutil.virtual_memory()
+                info["ram_total_gb"] = round(mem.total / (1024**3), 2)
+                info["ram_available_gb"] = round(mem.available / (1024**3), 2)
+                info["ram_percent"] = mem.percent
+            except ImportError:
+                pass
+            
+            return {"success": True, "system_info": info}
         except Exception as e:
             return {"success": False, "error": str(e)}
 

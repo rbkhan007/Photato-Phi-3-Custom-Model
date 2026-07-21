@@ -459,12 +459,14 @@ def _slash(cli: AgenticCLI, line: str, commands: set, json_mode: bool):
         print("    folder, location     = cwd")
         print("    space, storage       = disk")
         print("    check, test          = analyze")
+        print("    date, now            = /time")
         print()
         print("  SESSION:")
         print("    /clear               Clear chat history")
         print("    /new                 Start fresh session")
         print("    /export              Save chat as file")
         print("    /search <query>      Search old conversations")
+        print("    /time                Show current date and time")
         print()
         print("  SETTINGS:")
         print("    /status              Show current settings")
@@ -522,6 +524,18 @@ def _slash(cli: AgenticCLI, line: str, commands: set, json_mode: bool):
                 print("invalid number for /cpu")
         else:
             print("cpu_percent:", cli.config.get("cpu_percent"))
+        return None
+    if cmd == "time":
+        from datetime import datetime
+        import platform
+        now = datetime.now()
+        print()
+        print("  CURRENT DATE & TIME")
+        print("  " + "=" * 40)
+        print(f"  Date:     {now.strftime('%Y-%m-%d')} ({now.strftime('%A')})")
+        print(f"  Time:     {now.strftime('%H:%M:%S')}")
+        print(f"  Platform: {platform.system()} {platform.version()}")
+        print("  " + "=" * 40)
         return None
     print(f"unknown command: /{cmd}  (try /help)")
     return None

@@ -231,11 +231,13 @@ class TUI:
                 "  \033[96mcreate\033[0m, edit, make   = write\n"
                 "  \033[96mfind\033[0m, grep, look     = search\n"
                 "  \033[96mcode\033[0m, run            = run-code\n"
-                "  \033[96mcomputer\033[0m, system     = os\n\n"
+                "  \033[96mcomputer\033[0m, system     = os\n"
+                "  \033[96mdate\033[0m, now            = /time\n\n"
                 "\033[93mSESSION:\033[0m\n"
                 "  \033[96m/clear\033[0m               Clear chat history\n"
                 "  \033[96m/new\033[0m                 Start fresh session\n"
                 "  \033[96m/export\033[0m              Save chat as file\n"
+                "  \033[96m/time\033[0m                Show current date and time\n"
                 "  \033[96m/exit\033[0m                Quit the program\n\n"
                 "\033[96m============================================================\033[0m\n"
                 "\033[93mTIP: Just type naturally - AI understands!\033[0m"
@@ -324,6 +326,20 @@ class TUI:
             self._add_system_message(f"Plugins loaded: {result.get('loaded', 0)}")
             if result.get("plugins"):
                 self._add_system_message(f"Active: {', '.join(result['plugins'])}")
+        elif cmd == "time":
+            from datetime import datetime
+            import platform
+            now = datetime.now()
+            msg = (
+                "\033[96m============================================================\033[0m\n"
+                "\033[96m  CURRENT DATE & TIME\033[0m\n"
+                "\033[96m============================================================\033[0m\n\n"
+                f"\033[93mDate:\033[0m     {now.strftime('%Y-%m-%d')} ({now.strftime('%A')})\n"
+                f"\033[93mTime:\033[0m     {now.strftime('%H:%M:%S')}\n"
+                f"\033[93mPlatform:\033[0m {platform.system()} {platform.version()}\n\n"
+                "\033[96m============================================================\033[0m"
+            )
+            self._add_system_message(msg)
         else:
             self._add_system_message(f"unknown command: /{cmd}  (try /help)")
 
