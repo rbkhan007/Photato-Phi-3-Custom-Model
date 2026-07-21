@@ -1,29 +1,32 @@
-"""OpenCode-style TUI built with Textual.
+"""OpenCode-style TUI built with Textual — Windows PowerShell compatible.
 
-Matches the OpenCode interface:
+Features:
   - Deep dark theme with cyan/amber accents
   - ASCII logo on welcome screen
   - Collapsible thought blocks, tool cards, output panels
   - Fixed bottom input with status bar
   - Full integration with AgenticCLI (RAG, tools, streaming)
+  - Windows console mode auto-detection
+  - Graceful fallback if terminal is not interactive
 """
 
-import time
 import os
 import re
+import sys
 import json
+import time
 import asyncio
+import platform
 from pathlib import Path
 from typing import Optional, Any
 from datetime import datetime
 
 from textual.app import App, ComposeResult
-from textual.containers import Container, Horizontal, Vertical, ScrollableContainer, Grid
+from textual.containers import Container, Horizontal, Vertical, ScrollableContainer
 from textual.widgets import Header, Footer, Static, TextArea, RichLog, Input, Label, Button
-from textual.widgets import Collapsible, TabbedContent, TabPane
+from textual.widgets import Collapsible
 from textual.screen import Screen
 from textual.binding import Binding
-from textual.reactive import var
 from textual import events
 from rich.text import Text
 from rich.style import Style
@@ -31,11 +34,8 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.console import Console, RenderableType, Group
-from rich.layout import Layout
-from rich.columns import Columns
 from rich.markdown import Markdown
 
-# ── Constants ────────────────────────────────────────────────────────────
 BACKGROUND = "#0d0d0d"
 CARD_BG = "#1a1a1a"
 CARD_BG2 = "#222222"
@@ -49,20 +49,59 @@ GRAY2 = "#9ca3af"
 TEXT = "#e0e0e0"
 TEXT_DIM = "#888888"
 
-
-# ── Helpers ──────────────────────────────────────────────────────────────
-WELCOME_ART = r"""
-                       ██████╗ ██████╗ ███████╗███╗   ██╗ ██████╗ ██████╗ ██████╗ ███████╗
-                      ██╔═══██╗██╔══██╗██╔════╝████╗  ██║██╔════╝██╔═══██╗██╔══██╗██╔════╝
-                      ██║   ██║██████╔╝█████╗  ██╔██╗ ██║██║     ██║   ██║██║  ██║█████╗
-                      ██║   ██║██╔═══╝ ██╔══╝  ██║╚██╗██║██║     ██║   ██║██║  ██║██╔══╝
-                      ╚██████╔╝██║     ███████╗██║ ╚████║╚██████╗╚██████╔╝██████╔╝███████╗
-                       ╚═════╝ ╚═╝     ╚══════╝╚═╝  ╚═══╝ ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝
+WELCOME_ART = """
+   opencode — AI-powered terminal assistant
+   Built by Rhasan@dev (https://github.com/rbkhan007)
+   Phi-3 / Phi-4 Custom Model · llama.cpp · 100% Local
 """
 
 
-def _styled(s: str, style: str) -> Text:
-    return Text(s, style=style)
+def _enable_windows_console():
+    """Enable virtual terminal processing on Windows for true ANSI support."""
+    if platform.system() != "Windows":
+        return True
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        STD_OUTPUT_HANDLE = -11
+        ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+        ENABLE_PROCESSED_OUTPUT = 0x0001
+
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.GetStdHandle(STD_OUTPUT_HANDLE)
+        if handle == wintypes.HANDLE(-1).value or handle is None:
+            return False
+
+        mode = wintypes.DWORD()
+        if not kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+            return False
+
+        new_mode = mode.value | ENABLE_VIRTUAL_TERMINAL_PROCESSING | ENABLE_PROCESSED_OUTPUT
+        return bool(kernel32.SetConsoleMode(handle, new_mode))
+    except Exception:
+        return False
+
+
+def is_interactive_terminal() -> bool:
+    """Check if running in an interactive terminal suitable for TUI."""
+    if not sys.stdin.isatty() or not sys.stdout.isatty():
+        return False
+    term = os.environ.get("TERM", "").lower()
+    if term == "dumb":
+        return False
+    if platform.system() == "Windows":
+        try:
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            handle = kernel32.GetStdHandle(-11)
+            mode = ctypes.wintypes.DWORD()
+            if kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+                return True
+            return False
+        except Exception:
+            return False
+    return True
 
 
 def _tag(text: str, color: str = AMBER, tag: str = "") -> Text:
@@ -106,7 +145,6 @@ def _output_panel(content: str, title: str = "", exit_code: int = 0) -> Panel:
         border_style=Style(color=color),
         style=Style(bgcolor=CARD_BG),
         padding=(0, 1),
-        width=None,
     )
 
 
@@ -127,8 +165,6 @@ def _format_elapsed(seconds: float) -> str:
     m, s = divmod(int(seconds), 60)
     return f"{m}m{s}s"
 
-
-# ── Custom Widgets ───────────────────────────────────────────────────────
 
 class MessageWidget(Static):
     """A single conversation message."""
@@ -185,15 +221,14 @@ class WelcomeScreen(Static):
         logo = Text(WELCOME_ART, style=Style(color=ACCENT, bold=True))
         subtitle = Text("  AI-powered terminal assistant\n\n", style=Style(color=GRAY2, italic=True))
         hints = Text(
-            "  ctrl+p   commands   ·   tab   agents   ·   @file   references\n"
-            "  ctrl+c   cancel     ·   /help  commands   ·   ctrl+d   exit\n",
+            "  ctrl+p   commands   tab     focus input\n"
+            "  ctrl+c   cancel     /help   commands\n"
+            "  ctrl+d   exit       /clear  clear\n",
             style=Style(color=TEXT_DIM),
         )
-        version = Text("  Build · DeepSeek V4 Flash Free", style=Style(color=GRAY))
-        self.update(Panel(Group(logo, subtitle, hints, version), border_style=Style(color=ACCENT, dim=True), style=Style(bgcolor=BACKGROUND), padding=(2, 4)))
+        ver = Text(f"  Python {platform.python_version()}  Textual 8  Rich  |  by Rhasan@dev", style=Style(color=GRAY))
+        self.update(Panel(Group(logo, subtitle, hints, ver), border_style=Style(color=ACCENT, dim=True), style=Style(bgcolor=BACKGROUND), padding=(2, 4)))
 
-
-# ── Main Screen ──────────────────────────────────────────────────────────
 
 class MainScreen(Screen):
     """Primary conversation screen."""
@@ -223,7 +258,7 @@ class MainScreen(Screen):
 
     def _update_subtext(self) -> None:
         sub = self.query_one("#input-subtext", Static)
-        sub.update(Text("  Build · DeepSeek V4 Flash Free  ", style=Style(color=GRAY)))
+        sub.update(Text("  opencode TUI  |  ctrl+d exit  |  /help for commands  ", style=Style(color=GRAY)))
 
     def _update_status(self) -> None:
         footer = self.query_one("#status-bar", Footer)
@@ -234,13 +269,12 @@ class MainScreen(Screen):
         n_msgs = len(cli.session.messages) if hasattr(cli, "session") else 0
         tokens_est = n_msgs * 256
         pct = min(100, int(tokens_est / 200_000 * 100))
-        footer._node = None
         t = Text()
         t.append(f"  {wd}  ", style=Style(color=ACCENT))
         t.append(f"o {n_mcp} MCP ", style=Style(color=GREEN))
         t.append("  |  ", style=Style(color=GRAY))
         t.append(f"{tokens_est}K ({pct}%)  ", style=Style(color=AMBER if pct > 60 else GRAY))
-        t.append("v0.1.0", style=Style(color=GRAY))
+        t.append(f"v0.2.0", style=Style(color=GRAY))
         footer._node = t
         footer.refresh()
 
@@ -293,6 +327,7 @@ class MainScreen(Screen):
         existing = conv.query(MessageWidget)
         if existing and existing.last()._role == "assistant":
             existing.last()._content = content
+            existing.last().refresh()
         else:
             msg = MessageWidget("assistant", content)
             await conv.mount(msg)
@@ -357,25 +392,22 @@ class MainScreen(Screen):
         cli = self.app.cli
         t0 = time.time()
         chunks = []
-        thought_metadata = {}
         try:
             for chunk in cli.chat_stream(text):
                 chunks.append(chunk)
                 content = "".join(chunks)
                 await self._add_streaming_message(content)
-            full = "".join(chunks)
             elapsed = time.time() - t0
-            thought_metadata = {"duration_ms": elapsed * 1000}
+            if elapsed > 0:
+                self.app.notify(f"Response in {_format_elapsed(elapsed)}", severity="information")
         except Exception as e:
             full = f"Error: {e}"
             await self._add_streaming_message(full)
-        if thought_metadata:
-            self.app.notify(f"Response in {_format_elapsed(time.time() - t0)}", severity="information")
         self._update_status()
 
 
 class OpenCodeTUI(App):
-    """OpenCode-style TUI using Textual."""
+    """OpenCode-style TUI using Textual — Windows PowerShell compatible."""
 
     TITLE = "opencode"
     SUB_TITLE = "AI-powered terminal assistant"
@@ -459,10 +491,6 @@ class OpenCodeTUI(App):
         background: #1a1a1a;
         padding: 1;
     }
-
-    Vertical > * {
-        margin: 0 0 1 0;
-    }
     """
 
     BINDINGS = [
@@ -473,7 +501,6 @@ class OpenCodeTUI(App):
     def __init__(self, cli_instance: Any = None) -> None:
         super().__init__()
         self.cli = cli_instance
-        self._streaming = False
 
     def compose(self) -> ComposeResult:
         yield MainScreen()
@@ -483,17 +510,29 @@ class OpenCodeTUI(App):
         self.sub_title = "AI-powered terminal assistant"
 
 
-def run_tui(cli_instance: Any = None) -> None:
-    """Launch the OpenCode TUI."""
-    app = OpenCodeTUI(cli_instance)
-    app.run()
+def run_tui(cli_instance: Any = None) -> int:
+    """Launch the OpenCode TUI. Returns 0 on success, 1 if terminal not suitable."""
+    if not is_interactive_terminal():
+        print("Not an interactive terminal. Use python -m cli without pipe for REPL fallback.", file=sys.stderr)
+        return 1
+
+    _enable_windows_console()
+
+    try:
+        app = OpenCodeTUI(cli_instance)
+        app.run()
+        return 0
+    except Exception as e:
+        print(f"TUI error: {e}", file=sys.stderr)
+        print("Falling back to REPL mode. Run 'python -m cli' in a terminal window.", file=sys.stderr)
+        return 1
 
 
 def main() -> None:
     """Entry point for `python -m cli.tui`."""
     from cli import AgenticCLI
     cli = AgenticCLI()
-    run_tui(cli)
+    sys.exit(run_tui(cli))
 
 
 if __name__ == "__main__":
