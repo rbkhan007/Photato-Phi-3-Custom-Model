@@ -117,9 +117,10 @@ class AgenticCLI:
 
     def _load_config(self, override: dict = None):
         """Load config from disk (if present), then apply any overrides."""
+        default_model = str(Path("notebooks/Phi-4-mini-instruct-Q4_K_M.gguf").resolve())
         cfg = {
             "backend": "llamacpp",
-            "model": r"G:\LOACL ai models\phi3-custom-model\notebooks\Phi-4-mini-instruct-Q4_K_M.gguf",
+            "model": default_model,
             "ollama_host": "http://localhost:11434",
             "openai_base_url": "http://localhost:8080/v1",
             "temperature": 0.7,
@@ -131,11 +132,16 @@ class AgenticCLI:
                 "Always be helpful, accurate, and friendly. "
                 "When asked about the current date/time, use the system information provided."
             ),
+            "hf_token": "",
         }
         path = self._paths()["config"]
         try:
             if path.exists():
                 cfg.update(json.loads(path.read_text(encoding="utf-8")))
+            else:
+                # Save default config on first run
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
         except (OSError, json.JSONDecodeError):
             pass
         if override:
@@ -335,11 +341,9 @@ class AgenticCLI:
         rag_context = ""
         if self._rag_engine:
             try:
-                results = self._rag_engine.query(content, top_k=3)
-                if results:
-                    rag_context = "\n\nRelevant context:\n" + "\n".join(
-                        [r.get("content", "") for r in results]
-                    )
+                retrieval = self._rag_engine.retrieve(content, top_k=3)
+                if retrieval.chunks:
+                    rag_context = "\n\nRelevant context:\n" + retrieval.context
             except Exception:
                 pass
 
@@ -416,11 +420,9 @@ class AgenticCLI:
         rag_context = ""
         if self._rag_engine:
             try:
-                results = self._rag_engine.query(content, top_k=3)
-                if results:
-                    rag_context = "\n\nRelevant context:\n" + "\n".join(
-                        [r.get("content", "") for r in results]
-                    )
+                retrieval = self._rag_engine.retrieve(content, top_k=3)
+                if retrieval.chunks:
+                    rag_context = "\n\nRelevant context:\n" + retrieval.context
             except Exception:
                 pass
 

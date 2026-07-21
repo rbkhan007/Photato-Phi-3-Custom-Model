@@ -442,7 +442,7 @@ def main(argv=None):
         print(json.dumps(result, indent=2, default=str))
         return 0
     except Exception as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        print(f"error: {exc}")
         return 1
 
 

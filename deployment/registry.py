@@ -457,7 +457,7 @@ def main(argv=None):
         elif args.command == "show":
             latest = registry.get_latest_version(args.name)
             if not latest:
-                print(f"Error: model '{args.name}' not found", file=sys.stderr)
+                print(f"Error: model '{args.name}' not found")
                 return 1
             print(json.dumps({
                 "name": args.name,
@@ -493,7 +493,7 @@ def main(argv=None):
 
         return 0
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+        print(f"Error: {e}")
         return 1
 
 

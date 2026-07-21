@@ -853,7 +853,7 @@ def main(argv=None):
         failed = sum(1 for r in results if r.status != TestStatus.PASS)
         return 1 if failed else 0
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+        print(f"Error: {e}")
         return 1
 
 

@@ -838,6 +838,8 @@ photato-phi-3-custom-model/
 │   └── __init__.py             # 5 backends, entity embeddings, similarity search
 │
 ├── scripts/                    # UTILITIES
+│   ├── prepare_dataset.py      # CSV to HuggingFace dataset converter
+│   ├── train_model.py          # QLoRA/LoRA training launcher
 │   ├── quantize_gguf.py
 │   └── quantize_gptq.py
 │
@@ -1153,6 +1155,71 @@ flowchart TB
 | `local_gpu` | RTX 3060/4060 12GB | 2 | 1024 | 16 |
 | `high_end_gpu` | A100 80GB | 8 | 2048 | 32 |
 | `cpu_only` | CPU | 1 | 256 | 8 |
+
+### Train on Your Own Data
+
+Prepare data from any source (auto-detects format):
+
+```bash
+# CSV / Chat JSONL / Trace JSONL / Rollout logs — all auto-detected
+python scripts/prepare_dataset.py \
+    datas/Claudecode.csv \
+    datas/traces.jsonl \
+    datas/rollout-*.jsonl \
+    --output ./data/training
+```
+
+Run the full QLoRA training pipeline:
+
+```bash
+python scripts/train_model.py ./data/training/train.jsonl \
+    --preset local_gpu \
+    --output ./my-custom-model \
+    --epochs 3
+```
+
+Or pass raw data directly (auto-detects CSV vs JSONL):
+
+```bash
+python scripts/train_model.py datas/Claudecode.csv --preset local_gpu
+python scripts/train_model.py datas/traces.jsonl --preset phi4_mini
+```
+
+Available presets: `phi4_mini`, `qwen3_embedding`, `colab_free_tier`, `colab_pro`, `local_gpu`, `high_end_gpu`, `cpu_only`.
+
+Override any preset parameter:
+
+```bash
+python scripts/train_model.py datas/Claudecode.csv \
+    --preset phi4_mini \
+    --lora-rank 32 \
+    --batch-size 4 \
+    --learning-rate 1e-4 \
+    --max-seq-length 2048 \
+    --epochs 5 \
+    --no-think \
+    --template phi4
+```
+
+Use programmatically:
+
+```python
+from training import MemoryEfficientTrainer
+
+# Auto-detect CSV or JSONL
+dataset, eval_dataset = MemoryEfficientTrainer.load_dataset(
+    "datas/Claudecode.csv",
+    template="phi4",
+    keep_think=True,
+)
+# Or direct CSV/JSONL loaders:
+# dataset, eval_dataset = MemoryEfficientTrainer.load_csv_dataset("...")
+# dataset, eval_dataset = MemoryEfficientTrainer.load_jsonl_dataset("...")
+
+trainer = MemoryEfficientTrainer()
+trainer.load_model()
+trainer.train(dataset, eval_dataset=eval_dataset, output_dir="./my-model")
+```
 
 ### Quantize
 

@@ -96,6 +96,12 @@ class TrainingConfig:
     # Data
     dataset_text_field: str = "text"
     packing: bool = False
+    dataset_path: str = ""
+
+    # CSV options
+    csv_keep_think: bool = True
+    csv_template: str = "phi4"
+    csv_train_split: float = 0.9
 
     def to_dict(self) -> dict:
         """Convert to dictionary."""
@@ -306,9 +312,9 @@ class MemoryEfficientTrainer:
                 missing.append(pkg)
 
         if missing:
-            print(f"Missing dependencies: {', '.join(missing)}")
-            print(f"Install with: pip install {' '.join(missing)}")
-            sys.exit(1)
+            msg = f"Missing dependencies: {', '.join(missing)}"
+            msg += f"\nInstall with: pip install {' '.join(missing)}"
+            raise ImportError(msg)
 
         # Check for bitsandbytes (optional)
         try:
@@ -317,6 +323,111 @@ class MemoryEfficientTrainer:
         except ImportError:
             print("Warning: bitsandbytes not available, 4-bit quantization disabled")
             self.config.use_4bit = False
+
+    @staticmethod
+    def _rows_to_datasets(rows: list, train_split: float, source: str):
+        from datasets import Dataset
+        import random
+        random.shuffle(rows)
+        split_idx = int(len(rows) * train_split)
+        train = Dataset.from_list(rows[:split_idx])
+        eval_ds = Dataset.from_list(rows[split_idx:])
+        print(f"Loaded dataset: {len(train)} train + {len(eval_ds)} eval from {source}")
+        return train, eval_ds
+
+    @staticmethod
+    def load_csv_dataset(
+        csv_path: str,
+        template: str = "phi4",
+        keep_think: bool = True,
+        train_split: float = 0.9,
+        max_rows: int = 0,
+    ) -> tuple:
+        import csv, re
+        from datasets import Dataset
+
+        CHAT_FMT = {
+            "phi3": {"system": "<|system|>\n{text}<|end|>\n", "user": "<|user|>\n{text}<|end|>\n", "assistant": "<|assistant|>\n{text}<|end|>\n"},
+            "phi4": {"system": "<|system|>\n{text}<|end|>\n", "user": "<|user|>\n{text}<|end|>\n", "assistant": "<|assistant|>\n{text}<|end|>\n"},
+        }
+        fmt = CHAT_FMT.get(template, CHAT_FMT["phi4"])
+        rows = []
+
+        with open(csv_path, encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for i, row in enumerate(reader):
+                if max_rows and i >= max_rows:
+                    break
+                parts = []
+                for role in ("system", "user", "assistant"):
+                    text = row.get(role, "").strip()
+                    if role == "assistant" and text and not keep_think:
+                        text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+                    if text:
+                        parts.append(fmt[role].format(text=text))
+                text = "".join(parts)
+                if text.strip():
+                    rows.append({"text": text})
+
+        return MemoryEfficientTrainer._rows_to_datasets(rows, train_split, csv_path)
+
+    @staticmethod
+    def load_jsonl_dataset(
+        jsonl_path: str,
+        template: str = "phi4",
+        keep_think: bool = True,
+        train_split: float = 0.9,
+        max_rows: int = 0,
+    ) -> tuple:
+        import json, re
+
+        rows = []
+        with open(jsonl_path, encoding="utf-8") as f:
+            for i, line in enumerate(f):
+                if max_rows and i >= max_rows:
+                    break
+                line = line.strip()
+                if not line:
+                    continue
+                obj = json.loads(line)
+                msgs = obj.get("messages", [])
+                parts = []
+                for msg in msgs:
+                    role = msg.get("role", "user")
+                    text = msg.get("content", "").strip()
+                    if role == "assistant" and text and not keep_think:
+                        text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+                    tpl_key = role if role in ("system", "user", "assistant") else "user"
+                    if template == "phi4" or template == "phi3":
+                        parts.append(f"<|{tpl_key}|>\n{text}<|end|>\n")
+                    elif template == "llama3":
+                        parts.append(f"<|start_header_id|>{tpl_key}<|end_header_id|>\n\n{text}<|eot_id|>\n")
+                    elif template == "chatml":
+                        parts.append(f"<|im_start|>{tpl_key}\n{text}<|im_end|>\n")
+                text = "".join(parts)
+                if text.strip():
+                    rows.append({"text": text})
+
+        return MemoryEfficientTrainer._rows_to_datasets(rows, train_split, jsonl_path)
+
+    @staticmethod
+    def load_dataset(
+        path: str,
+        template: str = "phi4",
+        keep_think: bool = True,
+        train_split: float = 0.9,
+        max_rows: int = 0,
+    ) -> tuple:
+        import csv
+        with open(path, encoding="utf-8") as f:
+            first_line = f.readline().strip()
+        if first_line.startswith("system,"):
+            return MemoryEfficientTrainer.load_csv_dataset(path, template, keep_think, train_split, max_rows)
+        try:
+            json.loads(first_line)
+        except json.JSONDecodeError:
+            raise ValueError(f"Unknown dataset format: {path}")
+        return MemoryEfficientTrainer.load_jsonl_dataset(path, template, keep_think, train_split, max_rows)
 
     def load_model(self):
         """Load model with memory-efficient settings."""
@@ -340,11 +451,12 @@ class MemoryEfficientTrainer:
                 bnb_4bit_use_double_quant=self.config.bnb_4bit_use_double_quant,
             )
 
-        # Load model
+        # Load model (use float32 on CPU, float16 only when CUDA available)
+        use_fp16 = self.config.fp16 and torch.cuda.is_available()
         model_kwargs = {
             "device_map": self.config.device_map,
             "trust_remote_code": True,
-            "torch_dtype": torch.float16,
+            "dtype": torch.float16 if use_fp16 else torch.float32,
         }
 
         if bnb_config:
@@ -364,10 +476,11 @@ class MemoryEfficientTrainer:
 
         # Configure LoRA
         if self.config.use_lora:
-            self.model = prepare_model_for_kbit_training(
-                self.model,
-                use_gradient_checkpointing=self.config.gradient_checkpointing,
-            )
+            if self.config.use_4bit:
+                self.model = prepare_model_for_kbit_training(
+                    self.model,
+                    use_gradient_checkpointing=self.config.gradient_checkpointing,
+                )
 
             lora_config = LoraConfig(
                 r=self.config.lora_r,
@@ -387,8 +500,8 @@ class MemoryEfficientTrainer:
                 gradient_checkpointing_kwargs={"use_reentrant": False}
             )
 
-        # Enable Flash Attention if available
-        if self.config.use_flash_attention:
+        # Enable Flash Attention if available (CUDA only)
+        if self.config.use_flash_attention and torch.cuda.is_available():
             try:
                 self.model.config.attn_implementation = "flash_attention_2"
                 print("Flash Attention enabled")
@@ -792,7 +905,7 @@ def main(argv=None):
 
         return 0
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+        print(f"Error: {e}")
         return 1
 
 

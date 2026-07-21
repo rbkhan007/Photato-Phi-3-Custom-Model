@@ -1,578 +1,499 @@
-"""
-Full TUI REPL for the Agentic CLI.
+"""OpenCode-style TUI built with Textual.
 
-Uses prompt_toolkit Application with:
-- Scrolling conversation history pane (top)
-- Input buffer with auto-complete (bottom)
-- Status bar showing backend, model, CPU budget
-- Streaming token display
+Matches the OpenCode interface:
+  - Deep dark theme with cyan/amber accents
+  - ASCII logo on welcome screen
+  - Collapsible thought blocks, tool cards, output panels
+  - Fixed bottom input with status bar
+  - Full integration with AgenticCLI (RAG, tools, streaming)
 """
 
 import time
-import hashlib
-from typing import Optional
-from prompt_toolkit import Application
-from prompt_toolkit.layout import Layout, HSplit, Window, BufferControl, WindowAlign
-from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
-from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.styles import Style
-from prompt_toolkit.completion import WordCompleter
-from prompt_toolkit.buffer import Buffer
-from prompt_toolkit.layout.processors import Processor, Transformation
-from prompt_toolkit.lexers import SimpleLexer
-from prompt_toolkit.formatted_text import HTML, fragment_list_to_text
-from prompt_toolkit.enums import EditingMode
+import os
+import re
+import json
+import asyncio
+from pathlib import Path
+from typing import Optional, Any
+from datetime import datetime
+
+from textual.app import App, ComposeResult
+from textual.containers import Container, Horizontal, Vertical, ScrollableContainer, Grid
+from textual.widgets import Header, Footer, Static, TextArea, RichLog, Input, Label, Button
+from textual.widgets import Collapsible, TabbedContent, TabPane
+from textual.screen import Screen
+from textual.binding import Binding
+from textual.reactive import var
+from textual import events
+from rich.text import Text
+from rich.style import Style
+from rich.table import Table
+from rich.panel import Panel
+from rich.syntax import Syntax
+from rich.console import Console, RenderableType, Group
+from rich.layout import Layout
+from rich.columns import Columns
+from rich.markdown import Markdown
+
+# ── Constants ────────────────────────────────────────────────────────────
+BACKGROUND = "#0d0d0d"
+CARD_BG = "#1a1a1a"
+CARD_BG2 = "#222222"
+ACCENT = "#00d7ff"
+ACCENT2 = "#38bdf8"
+AMBER = "#f59e0b"
+GREEN = "#22c55e"
+RED = "#ef4444"
+GRAY = "#6b7280"
+GRAY2 = "#9ca3af"
+TEXT = "#e0e0e0"
+TEXT_DIM = "#888888"
 
 
-class TUI:
-    """prompt_toolkit-based TUI for the Agentic CLI."""
+# ── Helpers ──────────────────────────────────────────────────────────────
+WELCOME_ART = r"""
+                       ██████╗ ██████╗ ███████╗███╗   ██╗ ██████╗ ██████╗ ██████╗ ███████╗
+                      ██╔═══██╗██╔══██╗██╔════╝████╗  ██║██╔════╝██╔═══██╗██╔══██╗██╔════╝
+                      ██║   ██║██████╔╝█████╗  ██╔██╗ ██║██║     ██║   ██║██║  ██║█████╗
+                      ██║   ██║██╔═══╝ ██╔══╝  ██║╚██╗██║██║     ██║   ██║██║  ██║██╔══╝
+                      ╚██████╔╝██║     ███████╗██║ ╚████║╚██████╗╚██████╔╝██████╔╝███████╗
+                       ╚═════╝ ╚═╝     ╚══════╝╚═╝  ╚═══╝ ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝
+"""
 
-    def __init__(self, cli_instance):
-        from cli import AgenticCLI
-        self.cli: AgenticCLI = cli_instance
-        self.conversation_history: list[dict] = []
-        self._streaming_active = False
-        self._current_input = ""
 
-        # Build the completer with slash commands and tool commands
-        self._completer = WordCompleter(
-            [
-                "/help", "/status", "/system", "/clear", "/new",
-                "/model", "/backend", "/cpu", "/json", "/exit",
-                "/quit", "/time",
-                "list", "read", "write", "search", "run-code",
-                "exec", "git-status", "git-commit", "git-diff",
-                "git-log", "git-branch", "git-checkout", "git-pull",
-                "git-push", "analyze", "stats", "config", "sessions",
-                "mkdir", "rmdir", "copy", "move", "delete",
-                "exists", "disk", "env", "set-env", "cwd",
-                "cd", "os", "processes",
-                # Shell & Terminal
-                "powershell", "terminal", "shells",
-                "ps", "pwsh", "cmd", "shell",
-                # Windows Services
-                "services", "service",
-                # Processes
-                "kill", "run", "start",
-                # Registry
-                "registry", "reg",
-                # Event Log
-                "events", "eventlog",
-                # Network
-                "network", "ping", "netstat",
-                # Tasks
-                "tasks", "scheduled-tasks",
-                # System
-                "winver", "drives", "disks",
-            ],
-            ignore_case=True,
+def _styled(s: str, style: str) -> Text:
+    return Text(s, style=style)
+
+
+def _tag(text: str, color: str = AMBER, tag: str = "") -> Text:
+    if tag:
+        return Text(f" {tag} ", style=Style(bold=True, color=color, bgcolor=CARD_BG2)) + Text(f" {text}\n", style=color)
+    return Text(f" {text}\n", style=Style(bold=True, color=color))
+
+
+def _thought_header(duration_ms: float = 0) -> Text:
+    t = Text()
+    t.append(" +", style=Style(color=AMBER, bold=True))
+    t.append(f" Thought", style=Style(color=AMBER, bold=True))
+    if duration_ms:
+        t.append(f" ({duration_ms:.0f}ms)", style=Style(color=GRAY))
+    t.append("\n")
+    return t
+
+
+def _tool_header(cmd: str, args: str = "") -> Text:
+    t = Text()
+    if cmd in ("grep", "search", "find"):
+        t.append(f" *  Grep ", style=Style(color=ACCENT, bold=True))
+    elif cmd in ("pytest", "test", "run"):
+        t.append(f" $  ", style=Style(color=GREEN, bold=True))
+    else:
+        t.append(f" $  ", style=Style(color=ACCENT, bold=True))
+    t.append(f"{cmd} {args}", style=Style(color=TEXT))
+    t.append("\n")
+    return t
+
+
+def _output_panel(content: str, title: str = "", exit_code: int = 0) -> Panel:
+    color = RED if exit_code != 0 else GREEN
+    lines = content.split("\n")
+    n = min(len(lines), 5)
+    summary = "\n".join(lines[:n]) + ("..." if len(lines) > n else "")
+    return Panel(
+        Text(summary, style=TEXT),
+        title=title or f"exit code {exit_code}",
+        title_align="right",
+        border_style=Style(color=color),
+        style=Style(bgcolor=CARD_BG),
+        padding=(0, 1),
+        width=None,
+    )
+
+
+def _code_block(code: str, lang: str = "") -> RenderableType:
+    try:
+        return Syntax(code, lang or "python", theme="monokai", line_numbers=False, word_wrap=True)
+    except Exception:
+        return Text(code, style=TEXT)
+
+
+def _status_badge(label: str, color: str = GRAY) -> Text:
+    return Text(f" {label} ", style=Style(bold=True, color=color, bgcolor=CARD_BG2))
+
+
+def _format_elapsed(seconds: float) -> str:
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    m, s = divmod(int(seconds), 60)
+    return f"{m}m{s}s"
+
+
+# ── Custom Widgets ───────────────────────────────────────────────────────
+
+class MessageWidget(Static):
+    """A single conversation message."""
+
+    def __init__(self, role: str, content: str, metadata: Optional[dict] = None) -> None:
+        super().__init__()
+        self._role = role
+        self._content = content
+        self._metadata = metadata or {}
+
+    def on_mount(self) -> None:
+        self.update(self._render())
+
+    def _render(self) -> RenderableType:
+        if self._role == "user":
+            return Panel(
+                Text(self._content, style=Style(color=ACCENT2)),
+                title=" You ",
+                title_align="left",
+                border_style=Style(color=ACCENT, dim=True),
+                style=Style(bgcolor=CARD_BG),
+                padding=(0, 1),
+            )
+        elif self._role == "system":
+            dur = self._metadata.get("duration_ms", 0)
+            g = Group(_thought_header(dur), Text(self._content, style=Style(color=TEXT_DIM, italic=True)))
+            return Panel(g, border_style=Style(color=AMBER, dim=True), style=Style(bgcolor=CARD_BG), padding=(0, 1))
+        elif self._role == "tool":
+            cmd = self._metadata.get("cmd", "")
+            args = self._metadata.get("args", "")
+            exit_code = self._metadata.get("exit_code", 0)
+            g = Group(_tool_header(cmd, args), _output_panel(self._content, exit_code=exit_code))
+            return Panel(g, border_style=Style(color=GRAY, dim=True), style=Style(bgcolor=CARD_BG), padding=(0, 1))
+        else:
+            try:
+                md = Markdown(self._content)
+            except Exception:
+                md = Text(self._content, style=TEXT)
+            return Panel(
+                md,
+                border_style=Style(color=ACCENT2, dim=True),
+                style=Style(bgcolor=CARD_BG),
+                padding=(0, 1),
+            )
+
+
+class WelcomeScreen(Static):
+    """Centered welcome screen with ASCII logo and hint text."""
+
+    def on_mount(self) -> None:
+        self._render_welcome()
+
+    def _render_welcome(self) -> None:
+        logo = Text(WELCOME_ART, style=Style(color=ACCENT, bold=True))
+        subtitle = Text("  AI-powered terminal assistant\n\n", style=Style(color=GRAY2, italic=True))
+        hints = Text(
+            "  ctrl+p   commands   ·   tab   agents   ·   @file   references\n"
+            "  ctrl+c   cancel     ·   /help  commands   ·   ctrl+d   exit\n",
+            style=Style(color=TEXT_DIM),
         )
+        version = Text("  Build · DeepSeek V4 Flash Free", style=Style(color=GRAY))
+        self.update(Panel(Group(logo, subtitle, hints, version), border_style=Style(color=ACCENT, dim=True), style=Style(bgcolor=BACKGROUND), padding=(2, 4)))
 
-        # Buffers
-        self._history_buffer = Buffer(name="history_buffer", read_only=True)
-        self._input_buffer = Buffer(name="input_buffer", completer=self._completer)
 
-        # Key bindings
-        self._bindings = KeyBindings()
-        self._bindings.add("c-c")(self._handle_exit)
-        self._bindings.add("c-l")(self._handle_clear)
-        self._bindings.add("c-d")(self._handle_exit)
-        self._bindings.add("enter")(self._handle_submit)
+# ── Main Screen ──────────────────────────────────────────────────────────
 
-        # Layout
-        self._layout = self._build_layout()
+class MainScreen(Screen):
+    """Primary conversation screen."""
 
-        # Style
-        self._style = Style.from_dict({
-            "status-bar": "reverse",
-            "status-bar.backend": "bg:#0066cc #ffffff bold",
-            "status-bar.model": "bg:#004d99 #ffffff",
-            "status-bar.cpu": "bg:#003366 #ffffff",
-            "status-bar.messages": "bg:#001a33 #ffffff",
-            "conversation": "bg:#1a1a1a #e0e0e0",
-            "input.label": "bg:#333333 #00cc00 bold",
-            "user": "#00cc66 bold",
-            "assistant": "#0099ff bold",
-            "system": "#999999 italic",
-        })
+    BINDINGS = [
+        Binding("ctrl+c", "cancel", "Cancel"),
+        Binding("ctrl+d", "exit", "Exit"),
+        Binding("ctrl+p", "command_palette", "Commands"),
+        Binding("ctrl+l", "clear", "Clear"),
+        Binding("tab", "focus_input", "Focus Input"),
+    ]
 
-        # Build Application
-        self._app = Application(
-            layout=self._layout,
-            key_bindings=self._bindings,
-            style=self._style,
-            full_screen=True,
-            editing_mode=EditingMode.VI,  # Vi mode for easy navigation
-        )
+    def compose(self) -> ComposeResult:
+        with Container(id="main-container"):
+            yield ScrollableContainer(id="conversation", classes="conversation-panel")
+            yield WelcomeScreen(id="welcome")
+            with Container(id="bottom-panel"):
+                with Container(id="input-container"):
+                    yield TextArea(id="input", classes="input-box")
+                yield Static(id="input-subtext", classes="input-subtext")
+        yield Footer(id="status-bar", classes="status-bar")
 
-    def _build_layout(self) -> Layout:
-        """Build the HSplit layout with conversation pane, input, and status bar."""
-        # Conversation history pane
-        history_window = Window(
-            BufferControl(buffer=self._history_buffer),
-            wrap_lines=True,
-            style="conversation",
-        )
+    def on_mount(self) -> None:
+        self.query_one("#input", TextArea).focus()
+        self._update_subtext()
+        self._update_status()
 
-        # Input area with label
-        input_window = Window(
-            BufferControl(buffer=self._input_buffer),
-            height=3,
-            wrap_lines=False,
-        )
+    def _update_subtext(self) -> None:
+        sub = self.query_one("#input-subtext", Static)
+        sub.update(Text("  Build · DeepSeek V4 Flash Free  ", style=Style(color=GRAY)))
 
-        # Status bar
-        status_bar = FormattedTextControl(text=self._get_status_text)
+    def _update_status(self) -> None:
+        footer = self.query_one("#status-bar", Footer)
+        cli = self.app.cli
+        wd = str(cli.working_dir)[:50] if hasattr(cli, "working_dir") else "."
+        n_mcp = len(getattr(cli, "_tool_registry", None) or []) if hasattr(cli, "_tool_registry") else 0
+        n_msgs = len(cli.session.messages) if hasattr(cli, "session") else 0
+        tokens_est = n_msgs * 256
+        pct = min(100, int(tokens_est / 200_000 * 100))
+        footer._node = None
+        t = Text()
+        t.append(f"  {wd}  ", style=Style(color=ACCENT))
+        t.append(f"o {n_mcp} MCP ", style=Style(color=GREEN))
+        t.append("  |  ", style=Style(color=GRAY))
+        t.append(f"{tokens_est}K ({pct}%)  ", style=Style(color=AMBER if pct > 60 else GRAY))
+        t.append("v0.1.0", style=Style(color=GRAY))
+        footer._node = t
+        footer.refresh()
 
-        layout = HSplit([
-            # Conversation history (takes remaining space)
-            history_window,
-            # Separator line
-            Window(height=1, content=FormattedTextControl(text="-" * 80)),
-            # Input buffer
-            input_window,
-            # Status bar (fixed height 1)
-            Window(
-                height=1,
-                content=status_bar,
-                style="status-bar",
-            ),
-        ])
+    def action_clear(self) -> None:
+        conv = self.query_one("#conversation", ScrollableContainer)
+        conv.remove_children()
+        welcome = self.query_one("#welcome", WelcomeScreen)
+        welcome.display = True
+        self._update_status()
 
-        return Layout(layout, focused_element=input_window)
+    def action_cancel(self) -> None:
+        pass
 
-    def _get_status_text(self):
-        """Format the status bar text."""
-        backend = self.cli.backend
-        model = getattr(backend, "model_path", None) or getattr(backend, "model", self.cli.config.get("model"))
-        cpu = self.cli.config.get("cpu_percent", 55.0)
+    def action_exit(self) -> None:
+        self.app.exit()
 
-        try:
-            from optimization.cpu_throttle import recommended_threads
-            threads = recommended_threads(cpu)
-            budget = f"{cpu:.0f}% CPU / {threads} threads"
-        except Exception:
-            budget = f"{cpu:.0f}% CPU"
+    def action_command_palette(self) -> None:
+        self.app.notify("Command palette (WIP)", severity="information")
 
-        msg_count = len(self.cli.session.messages)
-        tc_count = len(self.cli.session.tool_calls)
+    def action_focus_input(self) -> None:
+        self.query_one("#input", TextArea).focus()
 
-        fragments = [
-            ("class:status-bar.backend", f" {backend.name} "),
-            ("class:status-bar.model", f" {model} "),
-            ("class:status-bar.cpu", f" {budget} "),
-            ("class:status-bar.messages", f" msgs:{msg_count} tools:{tc_count} "),
-        ]
-
-        # Right-align session info
-        session_info = f"session:{self.cli.session.id[:8]}"
-        padding = 80 - sum(len(f[1]) for f in fragments) - len(session_info) - 1
-        if padding > 0:
-            fragments.append(("", " " * padding))
-        fragments.append(("", session_info))
-
-        return fragments
-
-    def _handle_submit(self, event):
-        """Handle Enter key press."""
-        text = self._input_buffer.text.strip()
+    async def on_text_area_submitted(self, event: TextArea.Submitted) -> None:
+        input_w = self.query_one("#input", TextArea)
+        text = input_w.text.strip()
         if not text:
             return
+        input_w.clear()
+        welcome = self.query_one("#welcome", WelcomeScreen)
+        if welcome.display:
+            welcome.display = False
+        await self._process_input(text)
 
-        self._input_buffer.text = ""
-        self._process_input(text)
-
-    def _handle_exit(self, event):
-        """Handle Ctrl+C or Ctrl+D."""
-        self.cli.save_session()
-        event.app.exit()
-
-    def _handle_clear(self, event):
-        """Handle Ctrl+L to clear screen."""
-        self._app.renderer.clear()
-        self._refresh_history()
-
-    def _process_input(self, text: str):
-        """Process user input - slash commands, tool commands, or chat."""
-        if text in ("exit", "quit"):
-            self.cli.save_session()
-            self._app.exit()
-            return
-
+    async def _process_input(self, text: str) -> None:
+        await self._add_message("user", text)
         if text.startswith("/"):
-            self._handle_slash(text)
+            await self._handle_slash(text)
         else:
-            # Check if input starts with any registered tool name
-            first_word = text.split()[0] if text.split() else ""
-            if first_word in self.cli.tools:
-                self._handle_tool(text)
-            else:
-                self._handle_chat(text)
+            await self._handle_chat(text)
 
-    def _handle_slash(self, text: str):
-        """Handle slash commands."""
+    async def _add_message(self, role: str, content: str, metadata: Optional[dict] = None) -> None:
+        conv = self.query_one("#conversation", ScrollableContainer)
+        msg = MessageWidget(role, content, metadata)
+        await conv.mount(msg)
+        conv.scroll_end(animate=False)
+        self._update_status()
+
+    async def _add_streaming_message(self, content: str) -> None:
+        conv = self.query_one("#conversation", ScrollableContainer)
+        existing = conv.query(MessageWidget)
+        if existing and existing.last()._role == "assistant":
+            existing.last()._content = content
+        else:
+            msg = MessageWidget("assistant", content)
+            await conv.mount(msg)
+        conv.scroll_end(animate=False)
+
+    async def _handle_slash(self, text: str) -> None:
         parts = text[1:].split()
         cmd = parts[0].lower() if parts else ""
-        arg = parts[1] if len(parts) > 1 else None
-
-        self._add_system_message(f"> {text}")
+        arg = " ".join(parts[1:]) if len(parts) > 1 else ""
 
         if cmd in ("exit", "quit"):
-            self.cli.save_session()
-            self._app.exit()
-        elif cmd == "help":
-            self._add_system_message(
-                "\033[96m============================================================\033[0m\n"
-                "\033[96m  AVAILABLE COMMANDS\033[0m\n"
-                "\033[96m============================================================\033[0m\n\n"
-                "\033[93mCHAT:\033[0m\n"
-                "  Just type any message to chat with the AI\n"
-                "  Example: What is Python?\n\n"
-                "\033[93mFILES:\033[0m\n"
-                "  \033[96mlist\033[0m [path]          Show files in a folder\n"
-                "  \033[96mread\033[0m <file>          Read a file's contents\n"
-                "  \033[96mwrite\033[0m <file>         Create or edit a file\n"
-                "  \033[96msearch\033[0m <query>       Find text in files\n"
-                "  \033[96manalyze\033[0m <file>       Analyze code quality\n\n"
-                "\033[93mCODE:\033[0m\n"
-                "  \033[96mrun-code\033[0m <code>      Run Python/JS/other code\n"
-                "  \033[96mexec\033[0m <command>       Run a system command\n\n"
-                "\033[93mSYSTEM:\033[0m\n"
-                "  \033[96mos\033[0m                   Show computer info\n"
-                "  \033[96mprocesses\033[0m            Show running programs\n"
-                "  \033[96mcwd\033[0m                  Show current folder\n"
-                "  \033[96mdisk\033[0m [path]          Show disk space\n\n"
-                "\033[93mBEGINNER-FRIENDLY ALIASES:\033[0m\n"
-                "  \033[96mfiles\033[0m, dir, ls       = list\n"
-                "  \033[96mview\033[0m, cat, type      = read\n"
-                "  \033[96mcreate\033[0m, edit, make   = write\n"
-                "  \033[96mfind\033[0m, grep, look     = search\n"
-                "  \033[96mcode\033[0m, run            = run-code\n"
-                "  \033[96mcomputer\033[0m, system     = os\n"
-                "  \033[96mdate\033[0m, now            = /time\n\n"
-                "\033[93mSESSION:\033[0m\n"
-                "  \033[96m/clear\033[0m               Clear chat history\n"
-                "  \033[96m/new\033[0m                 Start fresh session\n"
-                "  \033[96m/export\033[0m              Save chat as file\n"
-                "  \033[96m/time\033[0m                Show current date and time\n"
-                "  \033[96m/exit\033[0m                Quit the program\n\n"
-                "\033[96m============================================================\033[0m\n"
-                "\033[93mTIP: Just type naturally - AI understands!\033[0m"
-            )
-        elif cmd == "status":
-            import json
-            status = self._get_status_dict()
-            formatted = (
-                "\033[96m============================================================\033[0m\n"
-                "\033[96m  CURRENT STATUS\033[0m\n"
-                "\033[96m============================================================\033[0m\n\n"
-                f"\033[93mBackend:\033[0m {status['backend']}\n"
-                f"\033[93mModel:\033[0m {status['model'].split('/')[-1] if '/' in str(status['model']) else status['model']}\n"
-                f"\033[93mCPU Budget:\033[0m {status['cpu_percent']:.0f}%\n"
-                f"\033[93mThread Budget:\033[0m {status['thread_budget']}\n"
-                f"\033[93mWorking Directory:\033[0m {status['working_dir']}\n"
-                f"\033[93mSession ID:\033[0m {status['session_id'][:8]}...\n"
-                f"\033[93mMessages:\033[0m {status['messages']}\n"
-                f"\033[93mTool Calls:\033[0m {status['tool_calls']}\n\n"
-                "\033[96m============================================================\033[0m"
-            )
-            self._add_system_message(formatted)
-        elif cmd == "system":
-            import json
-            self._add_system_message(json.dumps(self.cli._system_info, indent=2, default=str))
+            self.app.exit()
         elif cmd == "clear":
-            self.cli.clear()
-            self.conversation_history.clear()
-            self._refresh_history()
-            self._add_system_message("session cleared")
-        elif cmd == "new":
-            self.cli.clear()
-            self.conversation_history.clear()
-            self.cli.session.id = hashlib.md5(str(time.time()).encode()).hexdigest()[:12]
-            self._refresh_history()
-            self._add_system_message("started a new session")
+            self.action_clear()
+        elif cmd == "help":
+            await self._add_message("assistant", (
+                "**Slash Commands:**\n"
+                "  `/help` - Show this help\n"
+                "  `/clear` - Clear conversation\n"
+                "  `/status` - Show system status\n"
+                "  `/time` - Show date/time\n"
+                "  `/model <name>` - Switch model\n"
+                "  `/backend <name>` - Switch backend\n"
+                "  `/exit` - Quit\n"
+                "\n**Keybindings:**\n"
+                "  `ctrl+p` - Command palette\n"
+                "  `ctrl+d` - Exit\n"
+                "  `ctrl+l` - Clear\n"
+                "  `tab` - Focus input"
+            ))
+        elif cmd == "status":
+            cli = self.app.cli
+            info = getattr(cli, "_system_info", {})
+            s = (
+                f"**System:** {info.get('os', '?')} {info.get('arch', '?')}\n"
+                f"**Backend:** {cli.backend.name if hasattr(cli, 'backend') else '?'}\n"
+                f"**Model:** {cli.config.get('model', '?')}\n"
+                f"**Messages:** {len(cli.session.messages)}\n"
+                f"**CWD:** {cli.working_dir}"
+            )
+            await self._add_message("assistant", s)
+        elif cmd == "time":
+            now = datetime.now()
+            await self._add_message("assistant", f"**Date:** {now.strftime('%Y-%m-%d')} ({now.strftime('%A')})\n**Time:** {now.strftime('%H:%M:%S')}")
         elif cmd == "model":
             if arg:
-                self.cli.config["model"] = arg
-                self.cli._backend = None
-                self._add_system_message(f"model set to: {arg}")
+                self.app.cli.config["model"] = arg
+                await self._add_message("system", f"Model set to: {arg}")
             else:
-                model = getattr(self.cli.backend, "model_path", None) or getattr(self.cli.backend, "model", self.cli.config.get("model"))
-                self._add_system_message(f"model: {model}")
+                await self._add_message("assistant", f"Current model: {self.app.cli.config.get('model', '?')}")
         elif cmd == "backend":
             if arg:
-                self.cli.config["backend"] = arg
-                self.cli._backend = None
-                self._add_system_message(f"backend set to: {arg} (applied on next message)")
+                self.app.cli.config["backend"] = arg
+                self.app.cli._backend = None
+                await self._add_message("system", f"Backend set to: {arg}")
             else:
-                self._add_system_message(f"backend: {self.cli.backend.name}")
-        elif cmd == "cpu":
-            if arg:
-                try:
-                    self.cli.config["cpu_percent"] = float(arg)
-                    self.cli._backend = None
-                    self._add_system_message(f"cpu cap set to: {self.cli.config['cpu_percent']:.0f}% (applied on next message)")
-                except ValueError:
-                    self._add_system_message("invalid number for /cpu")
-            else:
-                self._add_system_message(f"cpu_percent: {self.cli.config.get('cpu_percent')}")
-        elif cmd == "search":
-            if arg:
-                results = self.cli.search_sessions(arg)
-                res_list = results.get("results", [])
-                if res_list:
-                    msg = f"Found {len(res_list)} sessions with matches for '{arg}':\n"
-                    for r in res_list[:3]:
-                        msg += f"  Session {r['session_id']}: {r['total_matches']} matches\n"
-                        for m in r.get("matches", [])[:2]:
-                            msg += f"    - {m.get('role')}: {m.get('content', '')[:80]}...\n"
-                else:
-                    msg = f"No matches found for '{arg}'"
-                self._add_system_message(msg)
-            else:
-                self._add_system_message("Usage: /search <query>")
-        elif cmd == "export":
-            filepath = arg or f"session_{self.cli.session.id}.md"
-            result = self.cli.export_session_markdown(filepath)
-            if result.get("success"):
-                self._add_system_message(f"Session exported to: {result['filepath']} ({result['messages']} messages)")
-            else:
-                self._add_system_message(f"Export failed: {result.get('error')}")
-        elif cmd == "plugins":
-            result = self.cli.load_plugins()
-            self._add_system_message(f"Plugins loaded: {result.get('loaded', 0)}")
-            if result.get("plugins"):
-                self._add_system_message(f"Active: {', '.join(result['plugins'])}")
-        elif cmd == "time":
-            from datetime import datetime
-            import platform
-            now = datetime.now()
-            msg = (
-                "\033[96m============================================================\033[0m\n"
-                "\033[96m  CURRENT DATE & TIME\033[0m\n"
-                "\033[96m============================================================\033[0m\n\n"
-                f"\033[93mDate:\033[0m     {now.strftime('%Y-%m-%d')} ({now.strftime('%A')})\n"
-                f"\033[93mTime:\033[0m     {now.strftime('%H:%M:%S')}\n"
-                f"\033[93mPlatform:\033[0m {platform.system()} {platform.version()}\n\n"
-                "\033[96m============================================================\033[0m"
-            )
-            self._add_system_message(msg)
+                await self._add_message("assistant", f"Current backend: {self.app.cli.backend.name}")
         else:
-            self._add_system_message(f"unknown command: /{cmd}  (try /help)")
+            await self._add_message("system", f"Unknown command: /{cmd}")
 
-        self._refresh_history()
-
-    def _handle_tool(self, text: str):
-        """Handle tool commands."""
-        import shlex
-        try:
-            tokens = shlex.split(text)
-        except ValueError:
-            tokens = text.split()
-
-        self._add_user_message(text)
-
-        # Build parser from __main__ to reuse tool dispatch
-        from cli.__main__ import _build_parser, _dispatch
-        import argparse
-
-        parser = _build_parser()
-        try:
-            args = parser.parse_args(tokens)
-        except SystemExit:
-            self._add_system_message("invalid command syntax")
-            self._refresh_history()
-            return
-
-        # Redirect output to our TUI
-        import io
-        from contextlib import redirect_stdout
-
-        f = io.StringIO()
-        with redirect_stdout(f):
-            _dispatch(self.cli, args)
-        output = f.getvalue()
-
-        if output:
-            self._add_system_message(output)
-        self._refresh_history()
-
-    def _handle_chat(self, text: str):
-        """Handle chat messages with streaming and beautiful formatting."""
-        self._add_user_message(text)
-        self._refresh_history()
-
-        # Stream response with typing indicator
-        self._add_assistant_prefix()
+    async def _handle_chat(self, text: str) -> None:
+        cli = self.app.cli
+        t0 = time.time()
         chunks = []
-        
-        # Show thinking indicator
-        self._update_streaming_response("\033[90mThinking...\033[0m")
-        
+        thought_metadata = {}
         try:
-            for chunk in self.cli.chat_stream(text):
+            for chunk in cli.chat_stream(text):
                 chunks.append(chunk)
-                self._streaming_active = True
-                # Format response with proper line breaks
-                response = "".join(chunks)
-                self._update_streaming_response(response)
+                content = "".join(chunks)
+                await self._add_streaming_message(content)
+            full = "".join(chunks)
+            elapsed = time.time() - t0
+            thought_metadata = {"duration_ms": elapsed * 1000}
         except Exception as e:
-            self._update_streaming_response(f"\033[91mError: {e}\033[0m")
-
-        # Finalize
-        self._finalize_assistant_response()
-
-        # Show metrics in a subtle way
-        u = getattr(self.cli, "last_usage", None)
-        if u:
-            bits = []
-            if u.get("completion_tokens") is not None:
-                bits.append(f"{u['completion_tokens']} tokens")
-            if u.get("tokens_per_second") is not None:
-                bits.append(f"{u['tokens_per_second']} tok/s")
-            if u.get("elapsed_s") is not None:
-                bits.append(f"{u['elapsed_s']}s")
-            if bits:
-                self._add_system_message(f"\033[90m  -> {' - '.join(bits)}\033[0m")
-                self._refresh_history()
-
-    def _get_status_dict(self):
-        """Get status as dict for JSON display."""
-        import json
-        cpu = self.cli.config.get("cpu_percent", 55.0)
-        try:
-            from optimization.cpu_throttle import recommended_threads
-            threads = recommended_threads(cpu)
-        except Exception:
-            threads = None
-        backend = self.cli.backend
-        return {
-            "backend": backend.name,
-            "model": getattr(backend, "model_path", None) or getattr(backend, "model", self.cli.config.get("model")),
-            "cpu_percent": cpu,
-            "thread_budget": threads,
-            "working_dir": self.cli.working_dir,
-            "session_id": self.cli.session.id,
-            "messages": len(self.cli.session.messages),
-            "tool_calls": len(self.cli.session.tool_calls),
-            "system": self.cli._system_info,
-        }
-
-    def _add_user_message(self, text: str):
-        """Add a user message to conversation history."""
-        self.conversation_history.append({"role": "user", "content": text})
-
-    def _add_assistant_prefix(self):
-        """Start an assistant response entry."""
-        self.conversation_history.append({"role": "assistant", "content": ""})
-
-    def _update_streaming_response(self, text: str):
-        """Update the current assistant response during streaming."""
-        if self.conversation_history and self.conversation_history[-1]["role"] == "assistant":
-            self.conversation_history[-1]["content"] = text
-            self._refresh_history()
-            # Force UI refresh
-            if self._app:
-                self._app.invalidate()
-
-    def _finalize_assistant_response(self):
-        """Mark streaming as complete."""
-        self._streaming_active = False
-
-    def _add_system_message(self, text: str):
-        """Add a system message to conversation history."""
-        self.conversation_history.append({"role": "system", "content": text})
-
-    def _refresh_history(self):
-        """Rebuild the conversation history display with beautiful formatting."""
-        lines = []
-        
-        # Add welcome message if empty
-        if not self.conversation_history:
-            lines.append(self._get_welcome_message())
-        
-        for entry in self.conversation_history:
-            role = entry["role"]
-            content = entry["content"]
-            
-            if role == "user":
-                # User messages with green prompt
-                lines.append(f"\n\033[92m[you]\033[0m {content}")
-            elif role == "assistant":
-                if content:
-                    # Assistant messages with blue prompt
-                    lines.append(f"\n\033[94m[assistant]\033[0m {content}")
-                else:
-                    lines.append("\n\033[94m[assistant]\033[0m ")
-            elif role == "system":
-                # System messages in gray
-                lines.append(f"\n\033[90m{content}\033[0m")
-        
-        # Join and set to history buffer
-        text = "\n".join(lines)
-        self._history_buffer.text = text
-        
-        # Move cursor to end of history
-        if text:
-            self._history_buffer.cursor_position = len(text)
-
-    def _get_welcome_message(self) -> str:
-        """Get a beautiful welcome message for new users."""
-        return """\033[96m============================================================
-  Welcome to PHI-3 AI ASSISTANT!
-============================================================\033[0m
-
-\033[93mGetting Started:\033[0m
-  1. Just type a question to chat with AI
-     Example: \033[90mWhat is machine learning?\033[0m
-
-  2. Use commands to work with files and code:
-     \033[96mlist\033[0m - see files  |  \033[96mread <file>\033[0m - view file
-     \033[96mwrite <file>\033[0m - create/edit  |  \033[96mrun-code\033[0m - execute code
-
-  3. Type \033[93m/help\033[0m to see all commands
-  4. Type \033[93m/exit\033[0m to quit
-
-\033[90mTip: Just type naturally - AI understands!\033[0m
-============================================================"""
-
-    def run(self):
-        """Run the TUI application."""
-        # Print banner before TUI takes over full screen
-        bar = "=" * 60
-        backend = self.cli.backend
-        model = getattr(backend, "model_path", None) or getattr(backend, "model", self.cli.config.get("model"))
-        cpu = self.cli.config.get("cpu_percent", 55.0)
-        try:
-            from optimization.cpu_throttle import recommended_threads
-            budget = f"{cpu:.0f}% CPU / ~{recommended_threads(cpu)} threads"
-        except Exception:
-            budget = f"{cpu:.0f}% CPU"
-        print(bar)
-        print("  Phi-3 Custom Model - Agentic CLI  (TUI mode)")
-        print(bar)
-        print(f"  backend : {backend.name}")
-        print(f"  model   : {model}")
-        print(f"  budget  : {budget}")
-        print(f"  cwd     : {self.cli.working_dir}")
-        print("-" * 60)
-        print("  Copyright (c) 2024-2026 Rhasan@dev (https://github.com/rbkhan007)")
-        print("  Licensed under MIT License. See LICENSE file for details.")
-        print("-" * 60)
-        print()
-        self._app.run()
+            full = f"Error: {e}"
+            await self._add_streaming_message(full)
+        if thought_metadata:
+            self.app.notify(f"Response in {_format_elapsed(time.time() - t0)}", severity="information")
+        self._update_status()
 
 
-def run_tui(cli_instance):
-    """Convenience function to run the TUI.
+class OpenCodeTUI(App):
+    """OpenCode-style TUI using Textual."""
 
-    Falls back to basic REPL if prompt_toolkit cannot initialize a proper
-    console (e.g. non-interactive terminal).
+    TITLE = "opencode"
+    SUB_TITLE = "AI-powered terminal assistant"
+    CSS = """
+    Screen {
+        background: #0d0d0d;
+    }
+
+    #main-container {
+        height: 100%;
+        layout: vertical;
+    }
+
+    #conversation {
+        height: 1fr;
+        background: #0d0d0d;
+        overflow-y: auto;
+        padding: 0 1;
+    }
+
+    #conversation MessageWidget {
+        margin: 0 0 1 0;
+    }
+
+    #welcome {
+        dock: top;
+        height: auto;
+        margin: 2 4;
+    }
+
+    #bottom-panel {
+        dock: bottom;
+        height: auto;
+        background: #111111;
+        border-top: solid #222222;
+    }
+
+    #input-container {
+        margin: 0 0 0 0;
+        padding: 0 0 0 0;
+        border-left: solid #00d7ff;
+    }
+
+    .input-box {
+        background: #0d0d0d;
+        color: #e0e0e0;
+        min-height: 3;
+        max-height: 6;
+        border: none;
+        padding: 1 2;
+    }
+
+    .input-box:focus {
+        border: none;
+    }
+
+    .input-subtext {
+        height: 1;
+        background: #111111;
+        color: #6b7280;
+        padding: 0 2;
+    }
+
+    #status-bar {
+        background: #0a0a0a;
+        color: #9ca3af;
+        height: 1;
+    }
+
+    MessageWidget {
+        margin: 0 0 1 0;
+    }
+
+    Collapsible > .collapsible--header {
+        background: #1a1a1a;
+        color: #f59e0b;
+        text-style: bold;
+    }
+
+    Collapsible > .collapsible--body {
+        background: #1a1a1a;
+        padding: 1;
+    }
+
+    Vertical > * {
+        margin: 0 0 1 0;
+    }
     """
-    try:
-        tui = TUI(cli_instance)
-        tui.run()
-    except Exception as e:
-        # If TUI fails (e.g. NoConsoleScreenBufferError), raise so caller
-        # can fall back to basic REPL.
-        raise RuntimeError(f"TUI unavailable: {e}") from e
+
+    BINDINGS = [
+        Binding("ctrl+c", "exit", "Exit"),
+        Binding("ctrl+d", "exit", "Exit"),
+    ]
+
+    def __init__(self, cli_instance: Any = None) -> None:
+        super().__init__()
+        self.cli = cli_instance
+        self._streaming = False
+
+    def compose(self) -> ComposeResult:
+        yield MainScreen()
+
+    def on_mount(self) -> None:
+        self.title = "opencode"
+        self.sub_title = "AI-powered terminal assistant"
+
+
+def run_tui(cli_instance: Any = None) -> None:
+    """Launch the OpenCode TUI."""
+    app = OpenCodeTUI(cli_instance)
+    app.run()
+
+
+def main() -> None:
+    """Entry point for `python -m cli.tui`."""
+    from cli import AgenticCLI
+    cli = AgenticCLI()
+    run_tui(cli)
+
+
+if __name__ == "__main__":
+    main()

@@ -216,6 +216,7 @@ class KnowledgeGraph:
                 name=row[1],
                 entity_type=EntityType(row[2]),
                 properties=json.loads(row[3]) if row[3] else {},
+                embedding=self._deserialize_embedding(row[4]),
                 created_at=row[5],
                 updated_at=row[6],
                 access_count=row[7],
@@ -291,6 +292,51 @@ class KnowledgeGraph:
         with open(json_file, "w") as f:
             json.dump(data, f, indent=2)
 
+    def set_entity_embedding(self, entity_id: str, embedding: list[float]):
+        entity = self.entities.get(entity_id)
+        if entity:
+            entity.embedding = embedding
+            self._save()
+
+    def _serialize_embedding(self, emb: Optional[list[float]]) -> Optional[bytes]:
+        if emb is None:
+            return None
+        return json.dumps(emb).encode("utf-8")
+
+    def _deserialize_embedding(self, blob: Optional[bytes]) -> Optional[list[float]]:
+        if blob is None:
+            return None
+        try:
+            return json.loads(blob.decode("utf-8"))
+        except Exception:
+            return None
+
+    def find_similar_entities(
+        self,
+        query_embedding: list[float],
+        top_k: int = 5,
+        threshold: float = 0.0,
+        entity_type: Optional[EntityType] = None,
+    ) -> list[tuple[Entity, float]]:
+        scores = []
+        for entity in self.entities.values():
+            if entity_type and entity.entity_type != entity_type:
+                continue
+            if entity.embedding is None:
+                continue
+            dot = 0.0
+            n1 = 0.0
+            n2 = 0.0
+            for a, b in zip(query_embedding, entity.embedding):
+                dot += a * b
+                n1 += a * a
+                n2 += b * b
+            sim = dot / (n1 ** 0.5 * n2 ** 0.5) if n1 > 0 and n2 > 0 else 0.0
+            if sim >= threshold:
+                scores.append((entity, sim))
+        scores.sort(key=lambda x: x[1], reverse=True)
+        return scores[:top_k]
+
     def _save_sqlite(self):
         """Save to SQLite."""
         cursor = self._conn.cursor()
@@ -305,7 +351,7 @@ class KnowledgeGraph:
                 entity.name,
                 entity.entity_type.value,
                 json.dumps(entity.properties),
-                None,
+                self._serialize_embedding(entity.embedding),
                 entity.created_at,
                 entity.updated_at,
                 entity.access_count,

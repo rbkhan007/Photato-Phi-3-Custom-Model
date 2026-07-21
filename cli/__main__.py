@@ -36,7 +36,7 @@ def _print(result, as_json: bool) -> None:
         return
     if isinstance(result, dict):
         if result.get("error"):
-            print(f"error: {result['error']}", file=sys.stderr)
+            print(f"error: {result['error']}")
             return
         if "content" in result and result.get("backend"):
             print(result["content"])
@@ -191,7 +191,7 @@ def _dispatch(cli: AgenticCLI, args: argparse.Namespace) -> int:
         call = cli.execute_tool("get_disk_info")
     
     else:
-        print(f"Unknown command: {cmd}", file=sys.stderr)
+        print(f"Unknown command: {cmd}")
         return 2
 
     _print(call.output, as_json)
@@ -309,56 +309,57 @@ def _repl(cli: AgenticCLI, as_json: bool, beginner: bool = False) -> int:
         "date": "time",
     }
 
-    try:
-        from cli.tui import run_tui
-        run_tui(cli)
-        return 0
-    except Exception:
-        # Fallback to basic REPL if TUI fails (e.g. no Windows console)
-        _banner(cli, tui_mode=False, beginner=beginner)
-        json_mode = as_json
-        parser = _build_parser()
-        commands = _command_names(parser)
-        while True:
-            try:
-                line = input("\033[92myou> \033[0m").strip()
-            except (EOFError, KeyboardInterrupt):
-                print()
-                cli.save_session()
+    if sys.stdin.isatty():
+        try:
+            from cli.tui import run_tui
+            run_tui(cli)
+            return 0
+        except Exception:
+            pass
+    # Fallback to basic REPL if TUI unavailable or non-interactive
+    _banner(cli, tui_mode=False, beginner=beginner)
+    json_mode = as_json
+    parser = _build_parser()
+    commands = _command_names(parser)
+    while True:
+        try:
+            line = input("\033[92myou> \033[0m").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            cli.save_session()
+            return 0
+        if not line:
+            continue
+        if line in ("exit", "quit"):
+            cli.save_session()
+            return 0
+        if line.startswith("/"):
+            ret = _slash(cli, line, commands, json_mode)
+            if ret == "exit":
                 return 0
-            if not line:
-                continue
-            if line in ("exit", "quit"):
-                cli.save_session()
-                return 0
-            if line.startswith("/"):
-                ret = _slash(cli, line, commands, json_mode)
-                if ret == "exit":
-                    return 0
-                if isinstance(ret, bool):
-                    json_mode = ret
-                continue
+            if isinstance(ret, bool):
+                json_mode = ret
+            continue
+        try:
+            tokens = shlex.split(line)
+        except ValueError:
+            tokens = line.split()
+        first_word = tokens[0] if tokens else ""
+        if beginner and first_word in BEGINNER_ALIASES:
+            tokens[0] = BEGINNER_ALIASES[first_word]
+            first_word = tokens[0]
+        if first_word in commands or first_word in cli.tools:
             try:
-                tokens = shlex.split(line)
-            except ValueError:
-                tokens = line.split()
-            first_word = tokens[0] if tokens else ""
-            # Apply beginner-friendly aliases
-            if beginner and first_word in BEGINNER_ALIASES:
-                tokens[0] = BEGINNER_ALIASES[first_word]
-                first_word = tokens[0]
-            if first_word in commands or first_word in cli.tools:
-                try:
-                    sub_args = parser.parse_args(tokens)
-                except SystemExit:
-                    continue
-                if sub_args.command in (None, "repl"):
-                    continue
-                if json_mode:
-                    sub_args.json = True
-                _dispatch(cli, sub_args)
+                sub_args = parser.parse_args(tokens)
+            except SystemExit:
                 continue
-            _chat_turn(cli, line, json_mode)
+            if sub_args.command in (None, "repl"):
+                continue
+            if json_mode:
+                sub_args.json = True
+            _dispatch(cli, sub_args)
+            continue
+        _chat_turn(cli, line, json_mode)
 
 
 def _chat_turn(cli: AgenticCLI, line: str, json_mode: bool) -> None:
@@ -869,7 +870,7 @@ def _health_check(cli: AgenticCLI) -> None:
         checks.append(("Extended Thinking", "SKIP", "Not available"))
 
     # Tool Registry
-    if cli._tool_registry:
+    if cli._tool_registry is not None:
         checks.append(("Tool Registry", "OK", "Initialized"))
     else:
         checks.append(("Tool Registry", "SKIP", "Not available"))
@@ -933,4 +934,8 @@ def main(argv: Optional[list] = None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)

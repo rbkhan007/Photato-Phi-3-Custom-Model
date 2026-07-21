@@ -98,8 +98,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.2.0] - 2026-07-22
+
+### Added
+- **CSV Training Pipeline** — Full support for training on custom CSV conversation data
+  - `scripts/prepare_dataset.py` — Convert CSV (system,user,assistant) to HuggingFace format
+  - `scripts/train_model.py` — Unified CLI: load CSV, apply QLoRA/LoRA, train, save adapter
+  - `TrainingConfig.csv_keep_think`, `.csv_template`, `.csv_train_split` — CSV data options
+  - `MemoryEfficientTrainer.load_csv_dataset()` — Load CSV directly into HF datasets
+- **Structured TUI Output** — `cli/generation.py` with SyntaxHighlighter, TableFormatter, StreamFormatter, CollapsibleSection
+- **Optimized Vector Ops** — LSHIndex, IVFIndex, batch operations in `optimization/vector_ops.py`
+- **Batch RAG Operations** — PGVectorStore batch insert, HNSW/IVFFlat indices, GgufEmbedder batch + cache
+- **Knowledge Graph Embeddings** — Entity embedding search with cosine similarity, SQLite persistence
+
+### Changed
+- CLI TUI (`cli/tui.py`) — Integrated generation.py formatters for /help, /status, /time, chat streaming
+- RAG engine (`capabilities/rag.py`) — Batch dispatch, auto-detection for embedder/store resolution
+- Test suite expanded to 455 tests across 19 files
+
 ## Version History
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 0.2.0 | 2026-07-22 | CSV training pipeline, TUI formatters, vector/embedding optimization |
 | 0.1.0 | 2026-07-21 | Initial release |

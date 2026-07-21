@@ -833,7 +833,7 @@ def main(argv=None):
             return 2
         return 0
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+        print(f"Error: {e}")
         return 1
 
 

@@ -391,7 +391,7 @@ def main(argv=None):
             }, indent=2, default=str))
             return 0
     except (OSError, ValueError) as e:
-        print(f"Error: {e}", file=sys.stderr)
+        print(f"Error: {e}")
         return 1
 
 

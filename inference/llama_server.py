@@ -416,7 +416,7 @@ def main(argv=None):
     except SystemExit as e:
         return int(e.code) if isinstance(e.code, int) else 1
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+        print(f"Error: {e}")
         return 1
 
 

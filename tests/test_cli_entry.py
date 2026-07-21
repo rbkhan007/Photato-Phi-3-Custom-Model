@@ -61,9 +61,9 @@ def test_read_ok(tmp_path):
 
 
 def test_read_missing_file_exit_code():
-    code, _, err = _run(["read", "definitely-missing-file.xyz"])
+    code, out, _ = _run(["read", "definitely-missing-file.xyz"])
     assert code == 1
-    assert "error" in err.lower()
+    assert "error" in out.lower()
 
 
 def test_write_then_read(tmp_path):

@@ -491,7 +491,7 @@ def main(argv=None):
         print(json.dumps(result.__dict__, indent=2, default=str))
         return 0 if result.success else 1
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+        print(f"Error: {e}")
         return 1
 
 

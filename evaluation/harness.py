@@ -484,7 +484,13 @@ def _cmd_list():
 
 
 def _cmd_livebench(args):
-    h = EvaluationHarness(EvaluationConfig(cpu_percent=args.cpu_percent, output_dir=args.output_dir))
+    from livebench.model import get_model_config
+    cfg = get_model_config(args.model)
+    h = EvaluationHarness(EvaluationConfig(
+        model_path=cfg.model_path,
+        cpu_percent=args.cpu_percent,
+        output_dir=args.output_dir,
+    ))
     results = h.run_livebench(model_name=args.model)
     if args.output:
         h.save_results(args.output)
@@ -494,7 +500,7 @@ def _cmd_livebench(args):
 def _cmd_custom(args):
     with open(args.tests) as f:
         test_cases = json.load(f)
-    h = EvaluationHarness(EvaluationConfig(model_path=args.model_path, output_dir=args.output_dir))
+    h = EvaluationHarness(EvaluationConfig(model_path=args.model_path or "", output_dir=args.output_dir))
     h.run_custom_eval(test_cases, _simple_eval_fn, args.name)
     h.print_summary()
     h.save_results()
@@ -514,7 +520,7 @@ def _cmd_report(args):
 
 
 def _cmd_compare(args):
-    h = EvaluationHarness(EvaluationConfig(cpu_percent=args.cpu_percent))
+    h = EvaluationHarness(EvaluationConfig(model_path="", cpu_percent=args.cpu_percent))
     h.compare_models(args.models)
 
 

@@ -121,7 +121,6 @@ class FastLlamaEngine:
         if temperature is not None:
             params.temperature = temperature
 
-        messages = [{"role": "user", "content": prompt}]
         t0 = time.time()
         first_token_ms = None
         chunks: list[str] = []

@@ -434,7 +434,7 @@ def main(argv=None):
             print(jm.ensure_json(text))
         return 0
     except (OSError, ValueError, json.JSONDecodeError) as e:
-        print(f"Error: {e}", file=sys.stderr)
+        print(f"Error: {e}")
         return 1
 
 
